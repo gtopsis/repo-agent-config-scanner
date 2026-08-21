@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Agentic Config Visualizer</title>
+<link rel="stylesheet" href="styles.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css" />
+</head>
+<body>
+<header class="topbar">
+  <h1>Agentic Config Visualizer</h1>
+  <div class="topbar-controls">
+    <button id="folder-btn" type="button" class="folder-btn">Select project</button>
+    <button id="reconnect-btn" type="button" hidden>Reconnect</button>
+    <select id="editor-select" class="editor-select" hidden></select>
+    <span id="editor-spinner" class="spinner" role="status" aria-label="Scanning" hidden></span>
+    <span id="editor-status" class="editor-status" hidden></span>
+  </div>
+</header>
+
+<div id="compat-banner" class="banner" hidden>
+  This app requires a Chromium-based browser (Chrome or Edge) — the File System Access API isn't available here.
+</div>
+
+<main id="app">
+  <div class="empty-state">Choose a project folder to get started.</div>
+</main>
+
+<script type="module" src="dist/main.js"></script>
+</body>
+</html>
