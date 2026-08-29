@@ -110,13 +110,90 @@ async function scanWorkflows(workflowsDir: FileSystemDirectoryHandle): Promise<S
         break;
       }
     }
-    if (found) {
-      const text = await readText(found);
-      items.push({ name, path: `.github/workflows/${foundName}`, description, preview: text });
-    }
+    if (!found) continue;
+    const text = await readText(found);
+    items.push({ name, path: `.github/workflows/${foundName}`, description, preview: text });
   }
 
   return items;
+}
+
+/** Scans every `.github/`-rooted section that depends on `githubDir` existing
+ * (instructions, agents, path instructions, prompts, chat modes, workflows,
+ * hooks, CLI settings) and pushes each into `sections`. Returns whether anything
+ * was actually found, so the caller can fold that into its own `detected` flag. */
+async function scanGithubDir(
+  root: FileSystemDirectoryHandle,
+  githubDir: FileSystemDirectoryHandle,
+  sections: ScanResult['sections'],
+  instructionItems: ScanItem[],
+  mcpItems: ScanItem[],
+): Promise<boolean> {
+  let detected = false;
+
+  const instrFile = await safeGetFile(githubDir, 'copilot-instructions.md');
+  if (instrFile) {
+    detected = true;
+    const text = await readText(instrFile);
+    instructionItems.push({
+      name: 'copilot-instructions.md',
+      path: '.github/copilot-instructions.md',
+      description: '',
+      preview: text || '',
+    });
+  }
+
+  await scanMcpFile(githubDir, 'mcp.json', '.github/mcp.json', mcpItems);
+
+  const agentItems = await scanFrontmatterSection(githubDir, 'agents', '.github/agents', {
+    predicate: (f) => f.name.endsWith('.md'),
+    resolveName: (meta, fileName) => (meta.name as string) || fileName.replace(/\.agent\.md$|\.md$/, ''),
+  });
+  if (agentItems.length) detected = true;
+  pushSection(sections, 'agents', 'Agents', agentItems);
+
+  const pathInstructionSuffix = '.instructions.md';
+  const pathInstructionItems = await scanFrontmatterSection(githubDir, 'instructions', '.github/instructions', {
+    predicate: (f) => f.name.endsWith(pathInstructionSuffix),
+    resolveName: (_meta, fileName) => fileName.slice(0, -pathInstructionSuffix.length),
+    resolveDescription: (meta) => (meta.applyTo ? `applyTo: ${meta.applyTo}` : ''),
+  });
+  if (pathInstructionItems.length) detected = true;
+  pushSection(sections, 'pathInstructions', 'Path Instructions', pathInstructionItems);
+
+  const promptSuffix = '.prompt.md';
+  const promptItems = await scanFrontmatterSection(githubDir, 'prompts', '.github/prompts', {
+    predicate: (f) => f.name.endsWith(promptSuffix),
+    resolveName: (_meta, fileName) => fileName.slice(0, -promptSuffix.length),
+  });
+  if (promptItems.length) detected = true;
+  pushSection(sections, 'prompts', 'Prompts', promptItems);
+
+  const chatmodeSuffix = '.chatmode.md';
+  const chatmodeItems = await scanFrontmatterSection(githubDir, 'chatmodes', '.github/chatmodes', {
+    predicate: (f) => f.name.endsWith(chatmodeSuffix),
+    resolveName: (_meta, fileName) => fileName.slice(0, -chatmodeSuffix.length),
+  });
+  if (chatmodeItems.length) detected = true;
+  pushSection(sections, 'chatmodes', 'Chat Modes', chatmodeItems);
+
+  const workflowsDir = await safeGetDirectory(githubDir, 'workflows');
+  const workflowItems = workflowsDir ? await scanWorkflows(workflowsDir) : [];
+  workflowItems.push(...(await scanAgenticWorkflows(root, 'copilot')));
+  if (workflowItems.length) detected = true;
+  pushSection(sections, 'workflows', 'Workflows', workflowItems);
+
+  const hookItems: ScanItem[] = [];
+  await scanHooks(githubDir, hookItems);
+  if (hookItems.length) detected = true;
+  pushSection(sections, 'hooks', 'Hooks', hookItems);
+
+  const settingItems: ScanItem[] = [];
+  await scanCliSettings(githubDir, settingItems);
+  if (settingItems.length) detected = true;
+  pushSection(sections, 'settings', 'Settings', settingItems);
+
+  return detected;
 }
 
 export async function scanCopilot(root: FileSystemDirectoryHandle): Promise<ScanResult> {
@@ -135,68 +212,8 @@ export async function scanCopilot(root: FileSystemDirectoryHandle): Promise<Scan
   await scanMcpFile(root, '.mcp.json', '.mcp.json', mcpItems);
 
   const githubDir = await safeGetDirectory(root, '.github');
-  if (githubDir) {
-    const instrFile = await safeGetFile(githubDir, 'copilot-instructions.md');
-    if (instrFile) {
-      detected = true;
-      const text = await readText(instrFile);
-      instructionItems.push({
-        name: 'copilot-instructions.md',
-        path: '.github/copilot-instructions.md',
-        description: '',
-        preview: text || '',
-      });
-    }
-
-    await scanMcpFile(githubDir, 'mcp.json', '.github/mcp.json', mcpItems);
-
-    const agentItems = await scanFrontmatterSection(githubDir, 'agents', '.github/agents', {
-      predicate: (f) => f.name.endsWith('.md'),
-      resolveName: (meta, fileName) => (meta.name as string) || fileName.replace(/\.agent\.md$|\.md$/, ''),
-    });
-    if (agentItems.length) detected = true;
-    pushSection(sections, 'agents', 'Agents', agentItems);
-
-    const pathInstructionSuffix = '.instructions.md';
-    const pathInstructionItems = await scanFrontmatterSection(githubDir, 'instructions', '.github/instructions', {
-      predicate: (f) => f.name.endsWith(pathInstructionSuffix),
-      resolveName: (_meta, fileName) => fileName.slice(0, -pathInstructionSuffix.length),
-      resolveDescription: (meta) => (meta.applyTo ? `applyTo: ${meta.applyTo}` : ''),
-    });
-    if (pathInstructionItems.length) detected = true;
-    pushSection(sections, 'pathInstructions', 'Path Instructions', pathInstructionItems);
-
-    const promptSuffix = '.prompt.md';
-    const promptItems = await scanFrontmatterSection(githubDir, 'prompts', '.github/prompts', {
-      predicate: (f) => f.name.endsWith(promptSuffix),
-      resolveName: (_meta, fileName) => fileName.slice(0, -promptSuffix.length),
-    });
-    if (promptItems.length) detected = true;
-    pushSection(sections, 'prompts', 'Prompts', promptItems);
-
-    const chatmodeSuffix = '.chatmode.md';
-    const chatmodeItems = await scanFrontmatterSection(githubDir, 'chatmodes', '.github/chatmodes', {
-      predicate: (f) => f.name.endsWith(chatmodeSuffix),
-      resolveName: (_meta, fileName) => fileName.slice(0, -chatmodeSuffix.length),
-    });
-    if (chatmodeItems.length) detected = true;
-    pushSection(sections, 'chatmodes', 'Chat Modes', chatmodeItems);
-
-    const workflowsDir = await safeGetDirectory(githubDir, 'workflows');
-    const workflowItems = workflowsDir ? await scanWorkflows(workflowsDir) : [];
-    workflowItems.push(...(await scanAgenticWorkflows(root, 'copilot')));
-    if (workflowItems.length) detected = true;
-    pushSection(sections, 'workflows', 'Workflows', workflowItems);
-
-    const hookItems: ScanItem[] = [];
-    await scanHooks(githubDir, hookItems);
-    if (hookItems.length) detected = true;
-    pushSection(sections, 'hooks', 'Hooks', hookItems);
-
-    const settingItems: ScanItem[] = [];
-    await scanCliSettings(githubDir, settingItems);
-    if (settingItems.length) detected = true;
-    pushSection(sections, 'settings', 'Settings', settingItems);
+  if (githubDir && (await scanGithubDir(root, githubDir, sections, instructionItems, mcpItems))) {
+    detected = true;
   }
 
   if (skillItems.length) detected = true;

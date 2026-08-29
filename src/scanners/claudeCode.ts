@@ -73,20 +73,18 @@ async function scanSettingsFile(
   }
   const json = result.json;
 
-  if (json.hooks) {
-    for (const [event, matchers] of Object.entries(json.hooks)) {
-      const matcherList = Array.isArray(matchers) ? matchers : [matchers];
-      for (const m of matcherList) {
-        const matcherLabel = m.matcher ?? '*';
-        const hooksArr: ClaudeHookEntry[] = Array.isArray(m.hooks) ? m.hooks : m.command ? [m] : [];
-        for (const h of hooksArr) {
-          hookItems.push({
-            name: `${event} — ${matcherLabel}`,
-            path: `.claude/${fileName}`,
-            description: h.command || '',
-            meta: { event, matcher: matcherLabel, type: h.type || 'command' },
-          });
-        }
+  for (const [event, matchers] of Object.entries(json.hooks || {})) {
+    const matcherList = Array.isArray(matchers) ? matchers : [matchers];
+    for (const m of matcherList) {
+      const matcherLabel = m.matcher ?? '*';
+      const hooksArr: ClaudeHookEntry[] = Array.isArray(m.hooks) ? m.hooks : m.command ? [m] : [];
+      for (const h of hooksArr) {
+        hookItems.push({
+          name: `${event} — ${matcherLabel}`,
+          path: `.claude/${fileName}`,
+          description: h.command || '',
+          meta: { event, matcher: matcherLabel, type: h.type || 'command' },
+        });
       }
     }
   }
