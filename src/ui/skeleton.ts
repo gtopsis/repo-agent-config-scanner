@@ -12,7 +12,6 @@ function skeletonItem(): string {
   );
 }
 
-/** Fills `container` with `count` repeated skeleton rows. */
 export function renderSkeletonList(container: HTMLElement, count = 6): void {
   container.innerHTML = `<div class="skeleton-list">${Array.from({ length: count }, skeletonItem).join('')}</div>`;
 }

@@ -44,7 +44,6 @@ export function extractMcpServers(
   return bare;
 }
 
-/** Reads an MCP config file and pushes one ScanItem per server it defines. */
 export async function scanMcpFile(
   dir: FileSystemDirectoryHandle,
   fileName: string,
