@@ -2,7 +2,6 @@ import { scanAll, EDITOR_META } from './scan.js';
 import { isFileSystemAccessSupported } from './compat.js';
 import { renderResults } from './render.js';
 import { renderSkeleton } from './ui/skeleton.js';
-import { createGraphView } from './ui/graphView.js';
 import { createDiffView } from './ui/diffView.js';
 import { saveDirectoryHandle, loadDirectoryHandle } from './lib/handleStore.js';
 import { saveScanCache, loadScanCache } from './lib/resultsCache.js';
@@ -22,7 +21,7 @@ const app = document.getElementById('app') as HTMLElement;
 
 const topbarRefs = { selectEl: editorSelect, statusEl: editorStatus, spinnerEl: editorSpinner };
 
-type ViewMode = 'browse' | 'graph' | 'diff';
+type ViewMode = 'browse' | 'diff';
 
 let currentHandle: FileSystemDirectoryHandle | null = null;
 let scanning = false;
@@ -47,9 +46,9 @@ function updateModeTabs(): void {
   }
 }
 
-/** Jumping to an item from the Graph or Compare view always means "go look at it
- * in Browse mode" — switches mode, then renderActiveView() (via the pendingFocus
- * it sets) lands renderResults() on that exact editor/section/item. */
+/** Jumping to an item from the Compare view always means "go look at it in Browse
+ * mode" — switches mode, then renderActiveView() (via the pendingFocus it sets)
+ * lands renderResults() on that exact editor/section/item. */
 function goToItem(target: ItemTarget): void {
   viewMode = 'browse';
   pendingFocus = { editor: target.editor, sectionKey: target.sectionKey, itemPath: target.item.path };
@@ -57,17 +56,13 @@ function goToItem(target: ItemTarget): void {
   renderActiveView();
 }
 
-const graphView = createGraphView(app, goToItem);
 const diffView = createDiffView(app, goToItem);
 
 /** Re-renders whichever view is currently active against the latest scan results.
- * The editor <select> only means anything in Browse mode (Graph/Compare show every
+ * The editor <select> only means anything in Browse mode (Compare shows every
  * editor at once), so it's hidden outside of it. */
 function renderActiveView(): void {
-  if (viewMode === 'graph') {
-    editorSelect.hidden = true;
-    graphView.render(latestResults);
-  } else if (viewMode === 'diff') {
+  if (viewMode === 'diff') {
     editorSelect.hidden = true;
     diffView.render(latestResults, EDITOR_META);
   } else {

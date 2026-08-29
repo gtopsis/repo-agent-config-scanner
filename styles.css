@@ -783,69 +783,6 @@ button.canonical-ref-label {
   padding: 0;
 }
 
-/* Reference graph view */
-.graph-wrap {
-  padding: 24px;
-  overflow: auto;
-  height: 100%;
-}
-
-.graph-svg {
-  display: block;
-}
-
-.graph-edge {
-  fill: none;
-  stroke: var(--muted);
-  stroke-width: 1.5px;
-  opacity: 0.6;
-}
-
-.graph-arrow-head {
-  fill: var(--muted);
-  opacity: 0.6;
-}
-
-.graph-row-label {
-  fill: var(--muted);
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-}
-
-.graph-node {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 2px;
-  background: var(--accent-bg);
-  color: var(--text);
-  border: 1px solid var(--accent);
-  border-radius: 8px;
-  padding: 6px 12px;
-  text-align: left;
-  font-weight: 400;
-}
-
-.graph-node-name {
-  font-size: 0.85rem;
-  font-family: "SFMono-Regular", Consolas, monospace;
-  color: var(--accent);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.graph-node-meta {
-  font-size: 0.72rem;
-  color: var(--muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 /* Cross-editor diff view */
 .diff-wrap {
   padding: 24px 28px 40px;

@@ -15,7 +15,7 @@ export interface TopbarRefs {
  * editors have finished scanning, so the list never reshuffles as results stream in.
  * Editors from `allEditors` with no matching entry in `results` yet are shown as
  * disabled placeholders, and the topbar spinner is shown while any are still pending.
- * `initialFocus`, when given (e.g. jumping here from the Graph/Compare views),
+ * `initialFocus`, when given (e.g. jumping here from the Compare view),
  * selects that editor/item instead of falling back to the previously-active one. */
 export function renderResults(
   results: ScanResult[],
