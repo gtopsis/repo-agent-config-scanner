@@ -5,6 +5,10 @@ export type Meta = Record<string, unknown>;
 
 export interface CanonicalRef {
   path: string;
+  /** The original relative reference text as it appeared in the source body (e.g.
+   * `../../.agents/workflows/foo.md`) — used to find and linkify that exact inline
+   * occurrence in the rendered markdown. */
+  raw: string;
   /** Undefined when the referenced file couldn't be found (e.g. a stale/moved reference). */
   content?: string;
 }

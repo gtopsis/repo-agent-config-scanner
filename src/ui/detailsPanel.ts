@@ -2,6 +2,7 @@ import { renderMarkdown } from '../lib/markdown.js';
 import { FIELD_SCHEMAS, SECTION_BODY_TYPE } from '../config/fieldSchemas.js';
 import { escapeHtml, formatValue, iconEl } from './htmlHelpers.js';
 import type { CategoryMeta } from '../config/categories.js';
+import type { ItemTarget } from '../lib/itemIndex.js';
 import type { ScanItem, ScanResult, ScanSection } from '../types.js';
 
 export interface DetailsPanel {
@@ -9,8 +10,15 @@ export interface DetailsPanel {
   renderEmpty(message: string): void;
 }
 
+/** How the details panel resolves and follows an in-content reference to another
+ * scanned item (e.g. a skill's body pointing at `.agents/commands/foo.md`). */
+export interface RefNav {
+  resolve(path: string): ItemTarget | undefined;
+  goTo(target: ItemTarget): void;
+}
+
 /** Owns rendering the details panel for whichever item is currently selected. */
-export function createDetailsPanel(details: HTMLElement, layout: HTMLElement): DetailsPanel {
+export function createDetailsPanel(details: HTMLElement, layout: HTMLElement, nav: RefNav): DetailsPanel {
   function render(result: ScanResult, section: ScanSection, item: ScanItem, meta: CategoryMeta): void {
     details.innerHTML = '';
     details.style.setProperty('--accent', `var(--cat-${meta.color})`);
@@ -89,6 +97,7 @@ export function createDetailsPanel(details: HTMLElement, layout: HTMLElement): D
       const bodyEl = document.createElement('div');
       bodyEl.className = 'details-body md-body';
       bodyEl.innerHTML = renderMarkdown(item.preview);
+      linkifyReferences(bodyEl, item, nav);
       details.appendChild(bodyEl);
     } else if (bodyType === 'code' && item.preview) {
       const codeEl = document.createElement('pre');
@@ -98,13 +107,32 @@ export function createDetailsPanel(details: HTMLElement, layout: HTMLElement): D
     }
 
     for (const ref of item.canonicalRefs ?? []) {
+      const target = nav.resolve(ref.path);
       const refEl = document.createElement('div');
       refEl.className = ref.content ? 'canonical-ref' : 'canonical-ref canonical-ref-missing';
+
+      const labelText = `Canonical source: ${escapeHtml(ref.path)}`;
+      let labelHtml: string;
+      if (target) {
+        labelHtml =
+          `<button type="button" class="canonical-ref-label canonical-ref-label-linked">` +
+          `<i class="ti ti-git-merge" aria-hidden="true"></i> ${labelText}` +
+          `<i class="ti ti-arrow-right canonical-ref-jump" aria-hidden="true"></i>` +
+          `</button>`;
+      } else {
+        labelHtml = `<div class="canonical-ref-label"><i class="ti ti-git-merge" aria-hidden="true"></i> ${labelText}</div>`;
+      }
+
       refEl.innerHTML =
-        `<div class="canonical-ref-label"><i class="ti ti-git-merge" aria-hidden="true"></i> Canonical source: ${escapeHtml(ref.path)}</div>` +
+        labelHtml +
         (ref.content
           ? `<div class="canonical-ref-body md-body">${renderMarkdown(ref.content)}</div>`
           : `<div class="canonical-ref-missing-text">Referenced file not found — the reference may be stale.</div>`);
+
+      if (target) {
+        refEl.querySelector('.canonical-ref-label-linked')?.addEventListener('click', () => nav.goTo(target));
+      }
+
       details.appendChild(refEl);
     }
   }
@@ -114,4 +142,29 @@ export function createDetailsPanel(details: HTMLElement, layout: HTMLElement): D
   }
 
   return { render, renderEmpty };
+}
+
+/** Turns inline backtick-quoted `.agents/*.md` references inside a rendered markdown
+ * body (they come out as plain `<code>` spans) into clickable jump-to-item links,
+ * wherever the reference resolves to a scanned item somewhere in the current scan. */
+function linkifyReferences(bodyEl: HTMLElement, item: ScanItem, nav: RefNav): void {
+  const refs = item.canonicalRefs;
+  if (!refs?.length) return;
+
+  const codeEls = bodyEl.querySelectorAll('code');
+  codeEls.forEach((codeEl) => {
+    const text = codeEl.textContent ?? '';
+    const ref = refs.find((r) => r.raw === text);
+    if (!ref) return;
+    const target = nav.resolve(ref.path);
+    if (!target) return;
+
+    const link = document.createElement('button');
+    link.type = 'button';
+    link.className = 'ref-link';
+    link.title = `Jump to ${target.item.name} (${target.sectionLabel})`;
+    link.innerHTML = `<code>${escapeHtml(text)}</code><i class="ti ti-arrow-right" aria-hidden="true"></i>`;
+    link.addEventListener('click', () => nav.goTo(target));
+    codeEl.replaceWith(link);
+  });
 }

@@ -5,7 +5,12 @@ import type { DetailsPanel } from './detailsPanel.js';
 import type { ScanItem, ScanResult, ScanSection } from '../types.js';
 
 export interface ItemList {
-  render(result: ScanResult): void;
+  render(result: ScanResult, focus?: FocusTarget): void;
+}
+
+export interface FocusTarget {
+  sectionKey: string;
+  itemPath: string;
 }
 
 interface FirstItem {
@@ -18,7 +23,7 @@ interface FirstItem {
 /** Owns rendering the sidebar's foldable category groups and item rows for whichever
  * editor is currently selected, and wires row selection through to the details panel. */
 export function createItemList(itemList: HTMLElement, layout: HTMLElement, detailsPanel: DetailsPanel): ItemList {
-  function render(result: ScanResult): void {
+  function render(result: ScanResult, focus?: FocusTarget): void {
     itemList.innerHTML = '';
     layout.classList.remove('showing-details');
 
@@ -30,6 +35,7 @@ export function createItemList(itemList: HTMLElement, layout: HTMLElement, detai
 
     const sortedSections = orderedSections(result);
     let first: FirstItem | null = null;
+    let focused: FirstItem | null = null;
 
     for (const section of sortedSections) {
       const meta = categoryMeta(section.key);
@@ -72,16 +78,27 @@ export function createItemList(itemList: HTMLElement, layout: HTMLElement, detai
         itemsWrap.appendChild(row);
 
         if (!first) first = { row, section, item, meta };
+        if (
+          focus &&
+          section.key === focus.sectionKey &&
+          (item.path === focus.itemPath || item.additionalPaths?.includes(focus.itemPath))
+        ) {
+          focused = { row, section, item, meta };
+        }
       }
 
       group.appendChild(itemsWrap);
       itemList.appendChild(group);
     }
 
-    if (first) {
-      const f = first as FirstItem;
-      f.row.classList.add('active');
-      detailsPanel.render(result, f.section, f.item, f.meta);
+    const selected = focused ?? first;
+    if (selected) {
+      selected.row.classList.add('active');
+      detailsPanel.render(result, selected.section, selected.item, selected.meta);
+      if (focused) {
+        selected.row.scrollIntoView({ block: 'nearest' });
+        layout.classList.add('showing-details');
+      }
     }
   }
 

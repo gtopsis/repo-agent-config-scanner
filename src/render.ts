@@ -1,5 +1,8 @@
 import { createDetailsPanel } from './ui/detailsPanel.js';
 import { createItemList } from './ui/itemList.js';
+import { buildItemIndex } from './lib/itemIndex.js';
+import type { ItemTarget } from './lib/itemIndex.js';
+import type { ItemList } from './ui/itemList.js';
 import type { ScanResult } from './types.js';
 
 export interface TopbarRefs {
@@ -37,10 +40,23 @@ export function renderResults(
   layout.append(itemListEl, detailsEl);
   container.appendChild(layout);
 
-  const detailsPanel = createDetailsPanel(detailsEl, layout);
-  const itemList = createItemList(itemListEl, layout, detailsPanel);
-
   const resultByEditor = new Map(results.map((r) => [r.editor, r]));
+  const itemIndex = buildItemIndex(results);
+
+  // `goTo` is referenced by `detailsPanel` (created first) but calls into `itemList`
+  // (created second) — declared here so both closures can capture the same binding,
+  // which is assigned before `goTo` is ever actually invoked (only on user click).
+  let itemList!: ItemList;
+  function goTo(target: ItemTarget): void {
+    const result = resultByEditor.get(target.editor);
+    if (!result) return;
+    if (selectEl.value !== target.editor) selectEl.value = target.editor;
+    itemList.render(result, { sectionKey: target.sectionKey, itemPath: target.item.path });
+  }
+
+  const detailsPanel = createDetailsPanel(detailsEl, layout, { resolve: (path) => itemIndex.get(path), goTo });
+  itemList = createItemList(itemListEl, layout, detailsPanel);
+
   const orderedResults = allEditors.map((e) => resultByEditor.get(e.editor)).filter((r): r is ScanResult => !!r);
 
   selectEl.innerHTML = '';

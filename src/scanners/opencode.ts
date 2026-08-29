@@ -3,6 +3,7 @@ import { scanFrontmatterFiles } from '../lib/scanFrontmatterFiles.js';
 import { scanSkillsAcrossFolders } from '../lib/skills.js';
 import { extractMcpServers, describeMcpServer } from '../lib/mcp.js';
 import { parseJsonc } from '../lib/jsonc.js';
+import { resolveCanonicalRefsForSections } from '../lib/canonicalRefs.js';
 import type { ScanItem, ScanResult } from '../types.js';
 
 const HOOK_EVENT_PATTERN =
@@ -260,5 +261,6 @@ export async function scanOpencode(root: FileSystemDirectoryHandle): Promise<Sca
   if (mcpItems.length) sections.push({ key: 'mcpServers', label: 'MCP Servers', items: mcpItems });
   if (settingItems.length) sections.push({ key: 'settings', label: 'Settings', items: settingItems });
 
+  await resolveCanonicalRefsForSections(root, sections);
   return { editor: 'opencode', label: 'OpenCode', detected, sections };
 }

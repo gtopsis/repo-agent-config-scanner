@@ -3,6 +3,7 @@ import { scanFrontmatterFiles } from '../lib/scanFrontmatterFiles.js';
 import { scanSkillsAcrossFolders } from '../lib/skills.js';
 import { scanMcpFile } from '../lib/mcp.js';
 import { scanAgenticWorkflows } from '../lib/agenticWorkflows.js';
+import { resolveCanonicalRefsForSections } from '../lib/canonicalRefs.js';
 import type { ScanItem, ScanResult } from '../types.js';
 
 // AGENTS.md is a cross-tool standard Copilot's coding agent and code review both read,
@@ -242,5 +243,6 @@ export async function scanCopilot(root: FileSystemDirectoryHandle): Promise<Scan
     sections.unshift({ key: 'instructions', label: 'Project Instructions', items: instructionItems });
   }
 
+  await resolveCanonicalRefsForSections(root, sections);
   return { editor: 'github-copilot', label: 'GitHub Copilot', detected, sections };
 }

@@ -1,6 +1,5 @@
 import { safeGetDirectory } from './fsWalk.js';
 import { scanFrontmatterFiles } from './scanFrontmatterFiles.js';
-import { resolveCanonicalRefs } from './canonicalRefs.js';
 import type { ScanItem } from '../types.js';
 
 function folderNameFromSkillPath(path: string, fileName: string): string {
@@ -36,7 +35,6 @@ export async function scanSkillsAcrossFolders(
     for (const item of found) {
       const existing = byName.get(item.name);
       if (!existing) {
-        await resolveCanonicalRefs(root, item);
         byName.set(item.name, item);
       } else {
         existing.additionalPaths = [...(existing.additionalPaths ?? []), item.path];

@@ -518,6 +518,51 @@ main {
   margin-bottom: 8px;
 }
 
+button.canonical-ref-label {
+  width: 100%;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.canonical-ref-label-linked:hover {
+  text-decoration: underline;
+}
+
+.canonical-ref-jump {
+  margin-left: auto;
+}
+
+.ref-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border: none;
+  background: var(--accent-bg);
+  color: var(--accent);
+  border-radius: 4px;
+  padding: 1px 5px 1px 1px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.ref-link:hover {
+  text-decoration: underline;
+}
+
+.ref-link code {
+  background: none;
+  padding: 0;
+  color: inherit;
+}
+
+.ref-link i {
+  font-size: 0.75em;
+}
+
 .canonical-ref-missing {
   border-color: var(--warn-border);
   background: var(--warn-bg);

@@ -1,5 +1,5 @@
 import { safeGetDirectory, safeGetFile, readText } from './fsWalk.js';
-import type { CanonicalRef, ScanItem } from '../types.js';
+import type { CanonicalRef, ScanItem, ScanSection } from '../types.js';
 
 // Matches a backtick-quoted relative path pointing into .agents/ and ending in .md,
 // e.g. `../../../.agents/workflows/add-analytics-events.md`.
@@ -44,7 +44,23 @@ export async function resolveCanonicalRefs(root: FileSystemDirectoryHandle, item
   for (const relative of relativePaths) {
     const path = resolveRelativePath(item.path, relative);
     const file = await getFileAtPath(root, path);
-    refs.push({ path, content: file ? await readText(file) : undefined });
+    refs.push({ path, raw: relative, content: file ? await readText(file) : undefined });
   }
   item.canonicalRefs = refs;
+}
+
+/** Runs canonical-ref resolution across every item in every section — the generic
+ * entry point scanners call once, after building their full section list, so that
+ * commands/agents/rules/etc. get the same `.agents/*.md` reference linking that
+ * skills have always had, without every scan site needing its own call. */
+export async function resolveCanonicalRefsForSections(
+  root: FileSystemDirectoryHandle,
+  sections: ScanSection[],
+): Promise<void> {
+  for (const section of sections) {
+    for (const item of section.items) {
+      if (item.canonicalRefs) continue; // already resolved (e.g. skills, merged items)
+      await resolveCanonicalRefs(root, item);
+    }
+  }
 }

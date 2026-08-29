@@ -3,6 +3,7 @@ import { scanFrontmatterFiles } from '../lib/scanFrontmatterFiles.js';
 import { scanSkillsAcrossFolders } from '../lib/skills.js';
 import { scanMcpFile } from '../lib/mcp.js';
 import { scanAgenticWorkflows } from '../lib/agenticWorkflows.js';
+import { resolveCanonicalRefsForSections } from '../lib/canonicalRefs.js';
 import type { ScanItem, ScanResult, ScanSection } from '../types.js';
 
 interface ClaudeHookEntry {
@@ -308,5 +309,6 @@ export async function scanClaudeCode(root: FileSystemDirectoryHandle): Promise<S
     sections.unshift({ key: 'instructions', label: 'Project Instructions', items: instructionItems });
   }
 
+  await resolveCanonicalRefsForSections(root, sections);
   return { editor: 'claude-code', label: 'Claude Code', detected, sections };
 }

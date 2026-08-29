@@ -2,6 +2,7 @@ import { safeGetDirectory, safeGetFile, readText, walkFiles, DEFAULT_SKIP_DIRS }
 import { scanFrontmatterFiles } from '../lib/scanFrontmatterFiles.js';
 import { scanSkillsAcrossFolders } from '../lib/skills.js';
 import { scanMcpFile } from '../lib/mcp.js';
+import { resolveCanonicalRefsForSections } from '../lib/canonicalRefs.js';
 import type { ScanItem, ScanResult } from '../types.js';
 
 interface CursorHookEntry {
@@ -184,5 +185,6 @@ export async function scanCursor(root: FileSystemDirectoryHandle): Promise<ScanR
   if (environmentItems.length) sections.push({ key: 'environment', label: 'Environment', items: environmentItems });
   if (settingItems.length) sections.push({ key: 'settings', label: 'Settings', items: settingItems });
 
+  await resolveCanonicalRefsForSections(root, sections);
   return { editor: 'cursor', label: 'Cursor', detected, sections };
 }
