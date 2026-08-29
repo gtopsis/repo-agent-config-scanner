@@ -60,10 +60,12 @@ const diffView = createDiffView(app, goToItem);
 
 /** Re-renders whichever view is currently active against the latest scan results.
  * The editor <select> only means anything in Browse mode (Compare shows every
- * editor at once), so it's hidden outside of it. */
+ * editor at once) — made inert (invisible + non-interactive) rather than
+ * `hidden` outside of it, so it still reserves its layout space and the rest of
+ * the toolbar doesn't shift left/right when switching tabs. */
 function renderActiveView(): void {
+  editorSelect.classList.toggle('editor-select-inert', viewMode === 'diff');
   if (viewMode === 'diff') {
-    editorSelect.hidden = true;
     diffView.render(latestResults, EDITOR_META);
   } else {
     renderResults(latestResults, app, topbarRefs, EDITOR_META, pendingFocus);

@@ -121,6 +121,14 @@ html, body {
   white-space: nowrap;
 }
 
+/* Used instead of the `hidden` attribute while a non-Browse tab is active: keeps
+ * the select's layout space reserved so the rest of the toolbar (spinner, status)
+ * doesn't shift left/right as you switch tabs. */
+.editor-select-inert {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .editor-status {
   color: var(--muted);
   font-size: 0.78rem;
