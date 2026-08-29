@@ -1,15 +1,12 @@
 import { createDetailsPanel } from './ui/detailsPanel.js';
 import { createItemList } from './ui/itemList.js';
 import { createNavigator } from './ui/navigator.js';
-import type { SearchBox } from './ui/search.js';
 import type { ScanResult } from './types.js';
 
 export interface TopbarRefs {
   selectEl: HTMLSelectElement;
   statusEl: HTMLElement;
   spinnerEl: HTMLElement;
-  search: SearchBox;
-  searchInputEl: HTMLInputElement;
 }
 
 /** Builds the sidebar/details layout skeleton, wires it to the item-list and
@@ -17,14 +14,17 @@ export interface TopbarRefs {
  * fixed, canonical editor order — options always follow it regardless of which
  * editors have finished scanning, so the list never reshuffles as results stream in.
  * Editors from `allEditors` with no matching entry in `results` yet are shown as
- * disabled placeholders, and the topbar spinner is shown while any are still pending. */
+ * disabled placeholders, and the topbar spinner is shown while any are still pending.
+ * `initialFocus`, when given (e.g. jumping here from the Graph/Compare views),
+ * selects that editor/item instead of falling back to the previously-active one. */
 export function renderResults(
   results: ScanResult[],
   container: HTMLElement,
   topbar: TopbarRefs,
   allEditors: { editor: string; label: string }[] = results.map((r) => ({ editor: r.editor, label: r.label })),
+  initialFocus?: { editor: string; sectionKey: string; itemPath: string },
 ): void {
-  const { selectEl, statusEl, spinnerEl, search, searchInputEl } = topbar;
+  const { selectEl, statusEl, spinnerEl } = topbar;
   const prevEditor = selectEl.selectedOptions[0]?.dataset.editor;
 
   container.innerHTML = '';
@@ -47,8 +47,6 @@ export function renderResults(
   const detailsPanel = createDetailsPanel(detailsEl, layout, navigator);
   const itemList = createItemList(itemListEl, layout, detailsPanel);
   navigator.setItemList(itemList);
-  search.update(results, navigator);
-  searchInputEl.hidden = false;
 
   const orderedResults = allEditors.map((e) => resultByEditor.get(e.editor)).filter((r): r is ScanResult => !!r);
 
@@ -79,9 +77,16 @@ export function renderResults(
   };
 
   const selected =
-    orderedResults.find((r) => r.editor === prevEditor) ?? orderedResults.find((r) => r.detected) ?? orderedResults[0];
+    (initialFocus && orderedResults.find((r) => r.editor === initialFocus.editor)) ??
+    orderedResults.find((r) => r.editor === prevEditor) ??
+    orderedResults.find((r) => r.detected) ??
+    orderedResults[0];
   if (selected) {
     selectEl.value = selected.editor;
-    itemList.render(selected);
+    const focus =
+      initialFocus && selected.editor === initialFocus.editor
+        ? { sectionKey: initialFocus.sectionKey, itemPath: initialFocus.itemPath }
+        : undefined;
+    itemList.render(selected, focus);
   }
 }

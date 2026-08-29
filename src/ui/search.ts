@@ -1,14 +1,14 @@
 import { searchItems } from '../lib/search.js';
 import { escapeHtml } from './htmlHelpers.js';
 import type { ItemTarget } from '../lib/itemIndex.js';
-import type { Navigator } from './navigator.js';
 import type { ScanResult } from '../types.js';
 
 export interface SearchBox {
-  /** Called every time `renderResults` runs (streaming scans, editor switches) so
-   * search always matches against the latest data and navigates through the
-   * currently-live navigator, without re-attaching any DOM listeners. */
-  update(results: ScanResult[], navigator: Navigator): void;
+  /** Called every time new scan results arrive, regardless of which top-level view
+   * (Browse/Graph/Compare) is currently active, so search always matches the
+   * latest data and can navigate from any of them — not just whichever one last
+   * happened to render. */
+  update(results: ScanResult[], goTo: (target: ItemTarget) => void): void;
 }
 
 /** Owns the topbar search input + its results dropdown for the lifetime of the
@@ -17,7 +17,7 @@ export interface SearchBox {
  * fresh data via `update()` instead of being rebuilt. */
 export function createSearch(inputEl: HTMLInputElement, dropdownEl: HTMLElement): SearchBox {
   let results: ScanResult[] = [];
-  let navigator: Navigator | null = null;
+  let goTo: ((target: ItemTarget) => void) | null = null;
   let matches: ItemTarget[] = [];
   let activeIndex = -1;
 
@@ -34,7 +34,7 @@ export function createSearch(inputEl: HTMLInputElement, dropdownEl: HTMLElement)
   }
 
   function select(target: ItemTarget): void {
-    navigator?.goTo(target);
+    goTo?.(target);
     inputEl.value = '';
     closeDropdown();
     inputEl.blur();
@@ -49,7 +49,7 @@ export function createSearch(inputEl: HTMLInputElement, dropdownEl: HTMLElement)
       return;
     }
 
-    matches.forEach((target, i) => {
+    matches.forEach((target) => {
       const row = document.createElement('button');
       row.type = 'button';
       row.className = 'search-row';
@@ -111,9 +111,9 @@ export function createSearch(inputEl: HTMLInputElement, dropdownEl: HTMLElement)
   });
 
   return {
-    update(newResults, newNavigator) {
+    update(newResults, newGoTo) {
       results = newResults;
-      navigator = newNavigator;
+      goTo = newGoTo;
     },
   };
 }

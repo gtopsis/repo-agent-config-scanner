@@ -64,6 +64,30 @@ html, body {
   white-space: nowrap;
 }
 
+.view-tabs {
+  display: flex;
+  gap: 2px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.view-tab {
+  background: transparent;
+  color: var(--muted);
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.view-tab.active {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
 .topbar-controls {
   display: flex;
   align-items: center;
@@ -778,4 +802,130 @@ button.canonical-ref-label {
   font-family: "SFMono-Regular", Consolas, monospace;
   background: none;
   padding: 0;
+}
+
+/* Reference graph view */
+.graph-wrap {
+  padding: 24px;
+  overflow: auto;
+  height: 100%;
+}
+
+.graph-svg {
+  display: block;
+}
+
+.graph-edge {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.5px;
+  opacity: 0.6;
+}
+
+.graph-arrow-head {
+  fill: var(--muted);
+  opacity: 0.6;
+}
+
+.graph-row-label {
+  fill: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.graph-node {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  background: var(--accent-bg);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 6px 12px;
+  text-align: left;
+  font-weight: 400;
+}
+
+.graph-node-name {
+  font-size: 0.85rem;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  color: var(--accent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.graph-node-meta {
+  font-size: 0.72rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Cross-editor diff view */
+.diff-wrap {
+  padding: 24px 28px 40px;
+  overflow-y: auto;
+  height: 100%;
+}
+
+.diff-table-section {
+  margin-bottom: 32px;
+}
+
+.diff-table-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+  color: var(--accent);
+  margin: 0 0 10px;
+}
+
+.diff-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.diff-table th,
+.diff-table td {
+  border: 1px solid var(--border);
+  padding: 7px 12px;
+  text-align: center;
+}
+
+.diff-table th {
+  background: var(--panel);
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.diff-name-cell {
+  text-align: left;
+  font-family: "SFMono-Regular", Consolas, monospace;
+}
+
+.diff-present {
+  background: transparent;
+  color: var(--cat-green, var(--accent));
+  border: none;
+  padding: 2px;
+  font-size: 1rem;
+}
+
+.diff-present:hover {
+  color: var(--accent);
+}
+
+.diff-absent {
+  color: var(--border);
 }
