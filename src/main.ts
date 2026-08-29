@@ -101,6 +101,7 @@ reconnectBtn.addEventListener('click', reconnect);
 if (!isFileSystemAccessSupported()) {
   compatBanner.hidden = false;
   folderBtn.disabled = true;
+  folderBtn.title = 'Requires a Chromium-based browser (Chrome, Edge, Brave, Opera...)';
 } else {
   restoreSession();
 }

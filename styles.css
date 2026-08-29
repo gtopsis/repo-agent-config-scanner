@@ -112,7 +112,24 @@ html, body {
   background: var(--warn-bg);
   border: 1px solid var(--warn-border);
   border-width: 1px 0;
-  padding: 8px 20px;
+  padding: 12px 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.banner i {
+  color: var(--warn-border);
+  font-size: 1.2rem;
+  flex: none;
+  margin-top: 1px;
+}
+
+.banner a {
+  color: inherit;
+  text-decoration: underline;
 }
 
 button {
