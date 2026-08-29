@@ -1,19 +1,18 @@
 import { categoryMeta, orderedSections } from '../config/categories.js';
-import { escapeHtml, iconEl } from './htmlHelpers.js';
+import { escapeHtml } from './htmlHelpers.js';
+import { buildItemRow, buildGroupHeading, matchesFocus } from './itemRow.js';
+import type { FocusTarget } from './itemRow.js';
 import type { CategoryMeta } from '../config/categories.js';
 import type { DetailsPanel } from './detailsPanel.js';
 import type { ScanItem, ScanResult, ScanSection } from '../types.js';
+
+export type { FocusTarget } from './itemRow.js';
 
 export interface ItemList {
   render(result: ScanResult, focus?: FocusTarget): void;
 }
 
-export interface FocusTarget {
-  sectionKey: string;
-  itemPath: string;
-}
-
-interface FirstItem {
+interface SelectableRow {
   row: HTMLButtonElement;
   section: ScanSection;
   item: ScanItem;
@@ -23,6 +22,14 @@ interface FirstItem {
 /** Owns rendering the sidebar's foldable category groups and item rows for whichever
  * editor is currently selected, and wires row selection through to the details panel. */
 export function createItemList(itemList: HTMLElement, layout: HTMLElement, detailsPanel: DetailsPanel): ItemList {
+  function selectRow(result: ScanResult, target: SelectableRow, scrollIntoView: boolean): void {
+    itemList.querySelectorAll('.item-row.active').forEach((r) => r.classList.remove('active'));
+    target.row.classList.add('active');
+    detailsPanel.render(result, target.section, target.item, target.meta);
+    layout.classList.add('showing-details');
+    if (scrollIntoView) target.row.scrollIntoView({ block: 'nearest' });
+  }
+
   function render(result: ScanResult, focus?: FocusTarget): void {
     itemList.innerHTML = '';
     layout.classList.remove('showing-details');
@@ -33,58 +40,29 @@ export function createItemList(itemList: HTMLElement, layout: HTMLElement, detai
       return;
     }
 
-    const sortedSections = orderedSections(result);
-    let first: FirstItem | null = null;
-    let focused: FirstItem | null = null;
+    let first: SelectableRow | null = null;
+    let focused: SelectableRow | null = null;
 
-    for (const section of sortedSections) {
+    for (const section of orderedSections(result)) {
       const meta = categoryMeta(section.key);
 
       const group = document.createElement('details');
       group.className = 'section-group';
       group.dataset.sectionKey = section.key;
       group.open = true;
-
-      const heading = document.createElement('summary');
-      heading.className = 'item-group-heading';
-      heading.innerHTML =
-        `<i class="ti ti-chevron-right chevron" aria-hidden="true"></i>` +
-        `<i class="ti ${meta.icon}" style="color:var(--cat-${meta.color})" aria-hidden="true"></i>` +
-        `<span>${escapeHtml(section.label)}</span>` +
-        `<span class="item-group-count">${section.items.length}</span>`;
-      group.appendChild(heading);
+      group.appendChild(buildGroupHeading(section, meta));
 
       const itemsWrap = document.createElement('div');
       itemsWrap.className = 'section-items';
 
       for (const item of section.items) {
-        const row = document.createElement('button');
-        row.type = 'button';
-        row.className = 'item-row';
-        row.style.setProperty('--accent', `var(--cat-${meta.color})`);
-        row.style.setProperty('--accent-bg', `var(--cat-${meta.color}-bg)`);
-        row.innerHTML =
-          iconEl(meta, 'sm') +
-          `<span class="item-row-text">` +
-          `<span class="item-row-name">${escapeHtml(item.name)}</span>` +
-          (item.description ? `<span class="item-row-desc">${escapeHtml(item.description)}</span>` : '') +
-          `</span>`;
-        row.addEventListener('click', () => {
-          itemList.querySelectorAll('.item-row.active').forEach((r) => r.classList.remove('active'));
-          row.classList.add('active');
-          detailsPanel.render(result, section, item, meta);
-          layout.classList.add('showing-details');
-        });
+        const row = buildItemRow(item, meta);
+        const entry: SelectableRow = { row, section, item, meta };
+        row.addEventListener('click', () => selectRow(result, entry, false));
         itemsWrap.appendChild(row);
 
-        if (!first) first = { row, section, item, meta };
-        if (
-          focus &&
-          section.key === focus.sectionKey &&
-          (item.path === focus.itemPath || item.additionalPaths?.includes(focus.itemPath))
-        ) {
-          focused = { row, section, item, meta };
-        }
+        if (!first) first = entry;
+        if (matchesFocus(section, item, focus)) focused = entry;
       }
 
       group.appendChild(itemsWrap);
@@ -92,14 +70,7 @@ export function createItemList(itemList: HTMLElement, layout: HTMLElement, detai
     }
 
     const selected = focused ?? first;
-    if (selected) {
-      selected.row.classList.add('active');
-      detailsPanel.render(result, selected.section, selected.item, selected.meta);
-      if (focused) {
-        selected.row.scrollIntoView({ block: 'nearest' });
-        layout.classList.add('showing-details');
-      }
-    }
+    if (selected) selectRow(result, selected, /* scrollIntoView */ !!focused);
   }
 
   return { render };

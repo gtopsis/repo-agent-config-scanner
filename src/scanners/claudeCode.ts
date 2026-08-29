@@ -1,9 +1,10 @@
-import { safeGetDirectory, safeGetFile, readText, walkFiles, DEFAULT_SKIP_DIRS } from '../lib/fsWalk.js';
-import { scanFrontmatterFiles } from '../lib/scanFrontmatterFiles.js';
+import { safeGetDirectory, readText, walkFiles, DEFAULT_SKIP_DIRS } from '../lib/fsWalk.js';
 import { scanSkillsAcrossFolders } from '../lib/skills.js';
 import { scanMcpFile } from '../lib/mcp.js';
 import { scanAgenticWorkflows } from '../lib/agenticWorkflows.js';
 import { resolveCanonicalRefsForSections } from '../lib/canonicalRefs.js';
+import { readJsonSafe, jsonParseErrorItem } from '../lib/jsonFile.js';
+import { pushSection, scanFrontmatterSection } from '../lib/sections.js';
 import type { ScanItem, ScanResult, ScanSection } from '../types.js';
 
 interface ClaudeHookEntry {
@@ -64,22 +65,13 @@ async function scanSettingsFile(
   hookItems: ScanItem[],
   settingItems: ScanItem[],
 ): Promise<void> {
-  const file = await safeGetFile(claudeDir, fileName);
-  if (!file) return;
-
-  const text = await readText(file);
-  let json: ClaudeSettingsJson;
-  try {
-    json = JSON.parse(text) as ClaudeSettingsJson;
-  } catch (e) {
-    hookItems.push({
-      name: fileName,
-      path: `.claude/${fileName}`,
-      description: 'Could not parse JSON',
-      preview: text || '',
-    });
+  const result = await readJsonSafe<ClaudeSettingsJson>(claudeDir, fileName);
+  if (!result) return;
+  if (result.parseError) {
+    hookItems.push(jsonParseErrorItem(fileName, `.claude/${fileName}`, result.text));
     return;
   }
+  const json = result.json;
 
   if (json.hooks) {
     for (const [event, matchers] of Object.entries(json.hooks)) {
@@ -159,9 +151,7 @@ async function scanNestedMemoryFiles(root: FileSystemDirectoryHandle, items: Sca
 }
 
 async function scanRules(claudeDir: FileSystemDirectoryHandle): Promise<ScanItem[]> {
-  const dir = await safeGetDirectory(claudeDir, 'rules');
-  if (!dir) return [];
-  return scanFrontmatterFiles(dir, '.claude/rules', {
+  return scanFrontmatterSection(claudeDir, 'rules', '.claude/rules', {
     predicate: (f) => f.name.endsWith('.md'),
     resolveName: (_meta, fileName) => fileName.replace(/\.md$/, ''),
     resolveDescription: (meta) => {
@@ -172,9 +162,9 @@ async function scanRules(claudeDir: FileSystemDirectoryHandle): Promise<ScanItem
 }
 
 async function scanOutputStyles(claudeDir: FileSystemDirectoryHandle): Promise<ScanItem[]> {
-  const dir = await safeGetDirectory(claudeDir, 'output-styles');
-  if (!dir) return [];
-  return scanFrontmatterFiles(dir, '.claude/output-styles', { predicate: (f) => f.name.endsWith('.md') });
+  return scanFrontmatterSection(claudeDir, 'output-styles', '.claude/output-styles', {
+    predicate: (f) => f.name.endsWith('.md'),
+  });
 }
 
 function personName(value: string | PersonOrString | undefined): string | undefined {
@@ -182,53 +172,63 @@ function personName(value: string | PersonOrString | undefined): string | undefi
   return value?.name;
 }
 
-// Plugin manifests can live anywhere a plugin is developed/vendored in the repo,
-// not just under a fixed top-level folder.
-async function scanPlugins(root: FileSystemDirectoryHandle, items: ScanItem[]): Promise<void> {
-  const files = await walkFiles(root, '', (f) => f.path.endsWith('.claude-plugin/plugin.json'), DEFAULT_SKIP_DIRS);
+// Plugin/marketplace manifests can live anywhere they're developed/vendored in the
+// repo, not just under a fixed top-level folder — both are otherwise the exact same
+// "find files matching a suffix, parse each as JSON, map to an item" shape.
+async function scanJsonManifests<T>(
+  root: FileSystemDirectoryHandle,
+  pathSuffix: string,
+  toItem: (json: T, path: string) => ScanItem,
+  items: ScanItem[],
+): Promise<void> {
+  const files = await walkFiles(root, '', (f) => f.path.endsWith(pathSuffix), DEFAULT_SKIP_DIRS);
   for (const f of files) {
     const text = await readText(f.handle);
     try {
-      const json = JSON.parse(text) as ClaudePluginManifest;
-      items.push({
-        name: json.displayName || json.name || f.path,
-        path: f.path,
-        description: json.description || '',
-        meta: {
-          displayName: json.displayName,
-          version: json.version,
-          description: json.description,
-          author: personName(json.author),
-          license: json.license,
-          homepage: json.homepage,
-        },
-      });
+      items.push(toItem(JSON.parse(text) as T, f.path));
     } catch (e) {
-      items.push({ name: f.path, path: f.path, description: 'Could not parse JSON', preview: text || '' });
+      items.push(jsonParseErrorItem(f.path, f.path, text));
     }
   }
 }
 
+async function scanPlugins(root: FileSystemDirectoryHandle, items: ScanItem[]): Promise<void> {
+  await scanJsonManifests<ClaudePluginManifest>(
+    root,
+    '.claude-plugin/plugin.json',
+    (json, path) => ({
+      name: json.displayName || json.name || path,
+      path,
+      description: json.description || '',
+      meta: {
+        displayName: json.displayName,
+        version: json.version,
+        description: json.description,
+        author: personName(json.author),
+        license: json.license,
+        homepage: json.homepage,
+      },
+    }),
+    items,
+  );
+}
+
 async function scanMarketplaces(root: FileSystemDirectoryHandle, items: ScanItem[]): Promise<void> {
-  const files = await walkFiles(root, '', (f) => f.path.endsWith('.claude-plugin/marketplace.json'), DEFAULT_SKIP_DIRS);
-  for (const f of files) {
-    const text = await readText(f.handle);
-    try {
-      const json = JSON.parse(text) as ClaudeMarketplaceManifest;
-      items.push({
-        name: json.name || f.path,
-        path: f.path,
-        description: json.description || '',
-        meta: {
-          owner: personName(json.owner),
-          version: json.version,
-          pluginCount: Array.isArray(json.plugins) ? json.plugins.length : undefined,
-        },
-      });
-    } catch (e) {
-      items.push({ name: f.path, path: f.path, description: 'Could not parse JSON', preview: text || '' });
-    }
-  }
+  await scanJsonManifests<ClaudeMarketplaceManifest>(
+    root,
+    '.claude-plugin/marketplace.json',
+    (json, path) => ({
+      name: json.name || path,
+      path,
+      description: json.description || '',
+      meta: {
+        owner: personName(json.owner),
+        version: json.version,
+        pluginCount: Array.isArray(json.plugins) ? json.plugins.length : undefined,
+      },
+    }),
+    items,
+  );
 }
 
 export async function scanClaudeCode(root: FileSystemDirectoryHandle): Promise<ScanResult> {
@@ -247,19 +247,17 @@ export async function scanClaudeCode(root: FileSystemDirectoryHandle): Promise<S
     detected = true;
 
     const skillItems = await scanSkillsAcrossFolders(root, ['.claude']);
-    if (skillItems.length) sections.push({ key: 'skills', label: 'Skills', items: skillItems });
+    pushSection(sections, 'skills', 'Skills', skillItems);
 
-    const commandsDir = await safeGetDirectory(claudeDir, 'commands');
-    if (commandsDir) {
-      const items = await scanFrontmatterFiles(commandsDir, '.claude/commands', { predicate: (f) => f.name.endsWith('.md') });
-      if (items.length) sections.push({ key: 'commands', label: 'Commands', items });
-    }
+    const commandItems = await scanFrontmatterSection(claudeDir, 'commands', '.claude/commands', {
+      predicate: (f) => f.name.endsWith('.md'),
+    });
+    pushSection(sections, 'commands', 'Commands', commandItems);
 
-    const agentsDir = await safeGetDirectory(claudeDir, 'agents');
-    if (agentsDir) {
-      const items = await scanFrontmatterFiles(agentsDir, '.claude/agents', { predicate: (f) => f.name.endsWith('.md') });
-      if (items.length) sections.push({ key: 'agents', label: 'Agents', items });
-    }
+    const agentItems = await scanFrontmatterSection(claudeDir, 'agents', '.claude/agents', {
+      predicate: (f) => f.name.endsWith('.md'),
+    });
+    pushSection(sections, 'agents', 'Agents', agentItems);
 
     ruleItems = await scanRules(claudeDir);
     outputStyleItems = await scanOutputStyles(claudeDir);
@@ -268,42 +266,34 @@ export async function scanClaudeCode(root: FileSystemDirectoryHandle): Promise<S
     const settingItems: ScanItem[] = [];
     await scanSettingsFile(claudeDir, 'settings.json', hookItems, settingItems);
     await scanSettingsFile(claudeDir, 'settings.local.json', hookItems, settingItems);
-    if (hookItems.length) sections.push({ key: 'hooks', label: 'Hooks', items: hookItems });
-    if (settingItems.length) sections.push({ key: 'settings', label: 'Settings', items: settingItems });
+    pushSection(sections, 'hooks', 'Hooks', hookItems);
+    pushSection(sections, 'settings', 'Settings', settingItems);
   }
 
-  if (ruleItems.length) sections.push({ key: 'rules', label: 'Rules', items: ruleItems });
-  if (outputStyleItems.length) sections.push({ key: 'outputStyles', label: 'Output Styles', items: outputStyleItems });
+  pushSection(sections, 'rules', 'Rules', ruleItems);
+  pushSection(sections, 'outputStyles', 'Output Styles', outputStyleItems);
 
   const mcpItems: ScanItem[] = [];
   await scanMcpFile(root, '.mcp.json', '.mcp.json', mcpItems);
   if (claudeDir) await scanMcpFile(claudeDir, 'mcp.json', '.claude/mcp.json', mcpItems);
-  if (mcpItems.length) {
-    detected = true;
-    sections.push({ key: 'mcpServers', label: 'MCP Servers', items: mcpItems });
-  }
+  if (mcpItems.length) detected = true;
+  pushSection(sections, 'mcpServers', 'MCP Servers', mcpItems);
 
   const workflowItems: ScanItem[] = [];
   await scanWorkflows(root, workflowItems);
   workflowItems.push(...(await scanAgenticWorkflows(root, 'claude')));
-  if (workflowItems.length) {
-    detected = true;
-    sections.push({ key: 'workflows', label: 'Workflows', items: workflowItems });
-  }
+  if (workflowItems.length) detected = true;
+  pushSection(sections, 'workflows', 'Workflows', workflowItems);
 
   const pluginItems: ScanItem[] = [];
   await scanPlugins(root, pluginItems);
-  if (pluginItems.length) {
-    detected = true;
-    sections.push({ key: 'plugins', label: 'Plugins', items: pluginItems });
-  }
+  if (pluginItems.length) detected = true;
+  pushSection(sections, 'plugins', 'Plugins', pluginItems);
 
   const marketplaceItems: ScanItem[] = [];
   await scanMarketplaces(root, marketplaceItems);
-  if (marketplaceItems.length) {
-    detected = true;
-    sections.push({ key: 'marketplaces', label: 'Marketplaces', items: marketplaceItems });
-  }
+  if (marketplaceItems.length) detected = true;
+  pushSection(sections, 'marketplaces', 'Marketplaces', marketplaceItems);
 
   if (instructionItems.length) {
     sections.unshift({ key: 'instructions', label: 'Project Instructions', items: instructionItems });

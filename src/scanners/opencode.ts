@@ -1,9 +1,10 @@
 import { safeGetDirectory, safeGetFile, readText, walkFiles } from '../lib/fsWalk.js';
-import { scanFrontmatterFiles } from '../lib/scanFrontmatterFiles.js';
 import { scanSkillsAcrossFolders } from '../lib/skills.js';
 import { extractMcpServers, describeMcpServer } from '../lib/mcp.js';
 import { parseJsonc } from '../lib/jsonc.js';
 import { resolveCanonicalRefsForSections } from '../lib/canonicalRefs.js';
+import { jsonParseErrorItem, parseJsonOrNull } from '../lib/jsonFile.js';
+import { pushSection, scanFrontmatterSection } from '../lib/sections.js';
 import type { ScanItem, ScanResult } from '../types.js';
 
 const HOOK_EVENT_PATTERN =
@@ -70,8 +71,10 @@ async function scanInterface(root: FileSystemDirectoryHandle, opencodeDir: FileS
   const tuiFile = await safeGetFile(root, 'tui.json');
   if (tuiFile) {
     const text = await readText(tuiFile);
-    try {
-      const json = JSON.parse(text) as TuiJson;
+    const json = parseJsonOrNull<TuiJson>(text);
+    if (!json) {
+      items.push(jsonParseErrorItem('tui.json', 'tui.json', text));
+    } else {
       const keybindCount = json.keybinds ? Object.keys(json.keybinds).length : undefined;
       items.push({
         name: 'tui.json',
@@ -79,8 +82,6 @@ async function scanInterface(root: FileSystemDirectoryHandle, opencodeDir: FileS
         description: json.theme ? `Theme: ${json.theme}` : '',
         meta: { theme: json.theme, keybindCount },
       });
-    } catch (e) {
-      items.push({ name: 'tui.json', path: 'tui.json', description: 'Could not parse JSON', preview: text || '' });
     }
   }
 
@@ -137,17 +138,13 @@ export async function scanOpencode(root: FileSystemDirectoryHandle): Promise<Sca
   if (opencodeDir) {
     detected = true;
 
-    const agentsDir = await safeGetDirectory(opencodeDir, 'agents');
-    if (agentsDir) {
-      agentItems.push(...(await scanFrontmatterFiles(agentsDir, '.opencode/agents', { predicate: (f) => f.name.endsWith('.md') })));
-    }
+    agentItems.push(
+      ...(await scanFrontmatterSection(opencodeDir, 'agents', '.opencode/agents', { predicate: (f) => f.name.endsWith('.md') })),
+    );
 
-    const commandsDir = await safeGetDirectory(opencodeDir, 'commands');
-    if (commandsDir) {
-      commandItems.push(
-        ...(await scanFrontmatterFiles(commandsDir, '.opencode/commands', { predicate: (f) => f.name.endsWith('.md') })),
-      );
-    }
+    commandItems.push(
+      ...(await scanFrontmatterSection(opencodeDir, 'commands', '.opencode/commands', { predicate: (f) => f.name.endsWith('.md') })),
+    );
 
     const pluginsDir = await safeGetDirectory(opencodeDir, 'plugins');
     if (pluginsDir) {
@@ -251,15 +248,15 @@ export async function scanOpencode(root: FileSystemDirectoryHandle): Promise<Sca
   }
 
   const sections: ScanResult['sections'] = [];
-  if (instructionItems.length) sections.push({ key: 'instructions', label: 'Project Instructions', items: instructionItems });
-  if (skillItems.length) sections.push({ key: 'skills', label: 'Skills', items: skillItems });
-  if (agentItems.length) sections.push({ key: 'agents', label: 'Agents', items: agentItems });
-  if (commandItems.length) sections.push({ key: 'commands', label: 'Commands', items: commandItems });
-  if (toolItems.length) sections.push({ key: 'tools', label: 'Custom Tools', items: toolItems });
-  if (pluginItems.length) sections.push({ key: 'plugins', label: 'Plugins', items: pluginItems });
-  if (interfaceItems.length) sections.push({ key: 'interface', label: 'Interface', items: interfaceItems });
-  if (mcpItems.length) sections.push({ key: 'mcpServers', label: 'MCP Servers', items: mcpItems });
-  if (settingItems.length) sections.push({ key: 'settings', label: 'Settings', items: settingItems });
+  pushSection(sections, 'instructions', 'Project Instructions', instructionItems);
+  pushSection(sections, 'skills', 'Skills', skillItems);
+  pushSection(sections, 'agents', 'Agents', agentItems);
+  pushSection(sections, 'commands', 'Commands', commandItems);
+  pushSection(sections, 'tools', 'Custom Tools', toolItems);
+  pushSection(sections, 'plugins', 'Plugins', pluginItems);
+  pushSection(sections, 'interface', 'Interface', interfaceItems);
+  pushSection(sections, 'mcpServers', 'MCP Servers', mcpItems);
+  pushSection(sections, 'settings', 'Settings', settingItems);
 
   await resolveCanonicalRefsForSections(root, sections);
   return { editor: 'opencode', label: 'OpenCode', detected, sections };

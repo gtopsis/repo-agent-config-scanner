@@ -1,8 +1,9 @@
 import { safeGetDirectory, safeGetFile, readText, walkFiles, DEFAULT_SKIP_DIRS } from '../lib/fsWalk.js';
-import { scanFrontmatterFiles } from '../lib/scanFrontmatterFiles.js';
 import { scanSkillsAcrossFolders } from '../lib/skills.js';
 import { scanMcpFile } from '../lib/mcp.js';
 import { resolveCanonicalRefsForSections } from '../lib/canonicalRefs.js';
+import { readJsonSafe, jsonParseErrorItem } from '../lib/jsonFile.js';
+import { pushSection, scanFrontmatterSection } from '../lib/sections.js';
 import type { ScanItem, ScanResult } from '../types.js';
 
 interface CursorHookEntry {
@@ -29,23 +30,14 @@ interface EnvironmentJson {
 }
 
 async function scanHooks(cursorDir: FileSystemDirectoryHandle, hookItems: ScanItem[]): Promise<void> {
-  const file = await safeGetFile(cursorDir, 'hooks.json');
-  if (!file) return;
-  const text = await readText(file);
-  let json: CursorHooksJson;
-  try {
-    json = JSON.parse(text) as CursorHooksJson;
-  } catch (e) {
-    hookItems.push({
-      name: 'hooks.json',
-      path: '.cursor/hooks.json',
-      description: 'Could not parse JSON',
-      preview: text || '',
-    });
+  const result = await readJsonSafe<CursorHooksJson>(cursorDir, 'hooks.json');
+  if (!result) return;
+  if (result.parseError) {
+    hookItems.push(jsonParseErrorItem('hooks.json', '.cursor/hooks.json', result.text));
     return;
   }
 
-  for (const [event, entries] of Object.entries(json.hooks || {})) {
+  for (const [event, entries] of Object.entries(result.json.hooks || {})) {
     const list = Array.isArray(entries) ? entries : [entries];
     for (const entry of list) {
       const matcherLabel = entry.matcher ?? '*';
@@ -87,15 +79,13 @@ async function scanJsonSettingFile(
   description: string,
   items: ScanItem[],
 ): Promise<void> {
-  const file = await safeGetFile(dir, fileName);
-  if (!file) return;
-  const text = await readText(file);
-  try {
-    const json = JSON.parse(text) as Record<string, unknown>;
-    items.push({ name: fileName, path, description, meta: json });
-  } catch (e) {
-    items.push({ name: fileName, path, description: 'Could not parse JSON', preview: text || '' });
+  const result = await readJsonSafe(dir, fileName);
+  if (!result) return;
+  if (result.parseError) {
+    items.push(jsonParseErrorItem(fileName, path, result.text));
+    return;
   }
+  items.push({ name: fileName, path, description, meta: result.json });
 }
 
 export async function scanCursor(root: FileSystemDirectoryHandle): Promise<ScanResult> {
@@ -149,20 +139,15 @@ export async function scanCursor(root: FileSystemDirectoryHandle): Promise<ScanR
   if (cursorDir) {
     detected = true;
 
-    const rulesDir = await safeGetDirectory(cursorDir, 'rules');
-    if (rulesDir) {
-      ruleItems = await scanFrontmatterFiles(rulesDir, '.cursor/rules', { predicate: (f) => f.name.endsWith('.mdc') });
-    }
-
-    const agentsDir = await safeGetDirectory(cursorDir, 'agents');
-    if (agentsDir) {
-      agentItems = await scanFrontmatterFiles(agentsDir, '.cursor/agents', { predicate: (f) => f.name.endsWith('.md') });
-    }
-
-    const commandsDir = await safeGetDirectory(cursorDir, 'commands');
-    if (commandsDir) {
-      commandItems = await scanFrontmatterFiles(commandsDir, '.cursor/commands', { predicate: (f) => f.name.endsWith('.md') });
-    }
+    ruleItems = await scanFrontmatterSection(cursorDir, 'rules', '.cursor/rules', {
+      predicate: (f) => f.name.endsWith('.mdc'),
+    });
+    agentItems = await scanFrontmatterSection(cursorDir, 'agents', '.cursor/agents', {
+      predicate: (f) => f.name.endsWith('.md'),
+    });
+    commandItems = await scanFrontmatterSection(cursorDir, 'commands', '.cursor/commands', {
+      predicate: (f) => f.name.endsWith('.md'),
+    });
 
     await scanHooks(cursorDir, hookItems);
     await scanMcpFile(cursorDir, 'mcp.json', '.cursor/mcp.json', mcpItems);
@@ -174,16 +159,16 @@ export async function scanCursor(root: FileSystemDirectoryHandle): Promise<ScanR
   if (skillItems.length) detected = true;
 
   const sections: ScanResult['sections'] = [];
-  if (instructionItems.length) sections.push({ key: 'instructions', label: 'Project Instructions', items: instructionItems });
-  if (ruleItems.length) sections.push({ key: 'rules', label: 'Rules', items: ruleItems });
-  if (skillItems.length) sections.push({ key: 'skills', label: 'Skills', items: skillItems });
-  if (agentItems.length) sections.push({ key: 'agents', label: 'Subagents', items: agentItems });
-  if (commandItems.length) sections.push({ key: 'commands', label: 'Commands', items: commandItems });
-  if (hookItems.length) sections.push({ key: 'hooks', label: 'Hooks', items: hookItems });
-  if (mcpItems.length) sections.push({ key: 'mcpServers', label: 'MCP Servers', items: mcpItems });
-  if (ignoreItems.length) sections.push({ key: 'ignore', label: 'Ignore Rules', items: ignoreItems });
-  if (environmentItems.length) sections.push({ key: 'environment', label: 'Environment', items: environmentItems });
-  if (settingItems.length) sections.push({ key: 'settings', label: 'Settings', items: settingItems });
+  pushSection(sections, 'instructions', 'Project Instructions', instructionItems);
+  pushSection(sections, 'rules', 'Rules', ruleItems);
+  pushSection(sections, 'skills', 'Skills', skillItems);
+  pushSection(sections, 'agents', 'Subagents', agentItems);
+  pushSection(sections, 'commands', 'Commands', commandItems);
+  pushSection(sections, 'hooks', 'Hooks', hookItems);
+  pushSection(sections, 'mcpServers', 'MCP Servers', mcpItems);
+  pushSection(sections, 'ignore', 'Ignore Rules', ignoreItems);
+  pushSection(sections, 'environment', 'Environment', environmentItems);
+  pushSection(sections, 'settings', 'Settings', settingItems);
 
   await resolveCanonicalRefsForSections(root, sections);
   return { editor: 'cursor', label: 'Cursor', detected, sections };

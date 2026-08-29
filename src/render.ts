@@ -1,8 +1,6 @@
 import { createDetailsPanel } from './ui/detailsPanel.js';
 import { createItemList } from './ui/itemList.js';
-import { buildItemIndex } from './lib/itemIndex.js';
-import type { ItemTarget } from './lib/itemIndex.js';
-import type { ItemList } from './ui/itemList.js';
+import { createNavigator } from './ui/navigator.js';
 import type { ScanResult } from './types.js';
 
 export interface TopbarRefs {
@@ -41,21 +39,11 @@ export function renderResults(
   container.appendChild(layout);
 
   const resultByEditor = new Map(results.map((r) => [r.editor, r]));
-  const itemIndex = buildItemIndex(results);
+  const navigator = createNavigator(results, selectEl);
 
-  // `goTo` is referenced by `detailsPanel` (created first) but calls into `itemList`
-  // (created second) — declared here so both closures can capture the same binding,
-  // which is assigned before `goTo` is ever actually invoked (only on user click).
-  let itemList!: ItemList;
-  function goTo(target: ItemTarget): void {
-    const result = resultByEditor.get(target.editor);
-    if (!result) return;
-    if (selectEl.value !== target.editor) selectEl.value = target.editor;
-    itemList.render(result, { sectionKey: target.sectionKey, itemPath: target.item.path });
-  }
-
-  const detailsPanel = createDetailsPanel(detailsEl, layout, { resolve: (path) => itemIndex.get(path), goTo });
-  itemList = createItemList(itemListEl, layout, detailsPanel);
+  const detailsPanel = createDetailsPanel(detailsEl, layout, navigator);
+  const itemList = createItemList(itemListEl, layout, detailsPanel);
+  navigator.setItemList(itemList);
 
   const orderedResults = allEditors.map((e) => resultByEditor.get(e.editor)).filter((r): r is ScanResult => !!r);
 

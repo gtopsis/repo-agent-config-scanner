@@ -1,9 +1,10 @@
 import { safeGetDirectory, safeGetFile, readText, walkFiles, DEFAULT_SKIP_DIRS } from '../lib/fsWalk.js';
-import { scanFrontmatterFiles } from '../lib/scanFrontmatterFiles.js';
 import { scanSkillsAcrossFolders } from '../lib/skills.js';
 import { scanMcpFile } from '../lib/mcp.js';
 import { scanAgenticWorkflows } from '../lib/agenticWorkflows.js';
 import { resolveCanonicalRefsForSections } from '../lib/canonicalRefs.js';
+import { readJsonSafe, jsonParseErrorItem, parseJsonOrNull } from '../lib/jsonFile.js';
+import { pushSection, unshiftSection, scanFrontmatterSection } from '../lib/sections.js';
 import type { ScanItem, ScanResult } from '../types.js';
 
 // AGENTS.md is a cross-tool standard Copilot's coding agent and code review both read,
@@ -42,24 +43,24 @@ async function scanHooks(githubDir: FileSystemDirectoryHandle, items: ScanItem[]
   const files = await walkFiles(hooksDir, '.github/hooks', (f) => f.name.endsWith('.json'));
   for (const f of files) {
     const text = await readText(f.handle);
-    try {
-      const json = JSON.parse(text) as Record<string, unknown>;
-      const hooksMap = (json.hooks && typeof json.hooks === 'object' ? json.hooks : json) as Record<string, unknown>;
-      for (const [event, entries] of Object.entries(hooksMap)) {
-        const list = Array.isArray(entries) ? entries : [entries];
-        for (const entry of list) {
-          if (!entry || typeof entry !== 'object') continue;
-          const e = entry as { command?: string; matcher?: string; type?: string };
-          items.push({
-            name: `${event} — ${e.matcher ?? '*'}`,
-            path: f.path,
-            description: e.command || '',
-            meta: { event, matcher: e.matcher ?? '*', type: e.type || 'command' },
-          });
-        }
+    const json = parseJsonOrNull<Record<string, unknown>>(text);
+    if (!json) {
+      items.push(jsonParseErrorItem(f.name, f.path, text));
+      continue;
+    }
+    const hooksMap = (json.hooks && typeof json.hooks === 'object' ? json.hooks : json) as Record<string, unknown>;
+    for (const [event, entries] of Object.entries(hooksMap)) {
+      const list = Array.isArray(entries) ? entries : [entries];
+      for (const entry of list) {
+        if (!entry || typeof entry !== 'object') continue;
+        const e = entry as { command?: string; matcher?: string; type?: string };
+        items.push({
+          name: `${event} — ${e.matcher ?? '*'}`,
+          path: f.path,
+          description: e.command || '',
+          meta: { event, matcher: e.matcher ?? '*', type: e.type || 'command' },
+        });
       }
-    } catch (err) {
-      items.push({ name: f.name, path: f.path, description: 'Could not parse JSON', preview: text || '' });
     }
   }
 }
@@ -68,25 +69,19 @@ async function scanCliSettings(githubDir: FileSystemDirectoryHandle, items: Scan
   const copilotDir = await safeGetDirectory(githubDir, 'copilot');
   if (!copilotDir) return;
   for (const fileName of ['settings.json', 'settings.local.json']) {
-    const file = await safeGetFile(copilotDir, fileName);
-    if (!file) continue;
-    const text = await readText(file);
-    try {
-      const json = JSON.parse(text) as Record<string, unknown>;
-      items.push({
-        name: fileName,
-        path: `.github/copilot/${fileName}`,
-        description: fileName.includes('local') ? 'Personal override (should be gitignored)' : 'Shared CLI configuration',
-        meta: json,
-      });
-    } catch (e) {
-      items.push({
-        name: fileName,
-        path: `.github/copilot/${fileName}`,
-        description: 'Could not parse JSON',
-        preview: text || '',
-      });
+    const path = `.github/copilot/${fileName}`;
+    const result = await readJsonSafe(copilotDir, fileName);
+    if (!result) continue;
+    if (result.parseError) {
+      items.push(jsonParseErrorItem(fileName, path, result.text));
+      continue;
     }
+    items.push({
+      name: fileName,
+      path,
+      description: fileName.includes('local') ? 'Personal override (should be gitignored)' : 'Shared CLI configuration',
+      meta: result.json,
+    });
   }
 }
 
@@ -155,93 +150,61 @@ export async function scanCopilot(root: FileSystemDirectoryHandle): Promise<Scan
 
     await scanMcpFile(githubDir, 'mcp.json', '.github/mcp.json', mcpItems);
 
-    const agentsDir = await safeGetDirectory(githubDir, 'agents');
-    if (agentsDir) {
-      const items = await scanFrontmatterFiles(agentsDir, '.github/agents', {
-        predicate: (f) => f.name.endsWith('.md'),
-        resolveName: (meta, fileName) => (meta.name as string) || fileName.replace(/\.agent\.md$|\.md$/, ''),
-      });
-      if (items.length) {
-        detected = true;
-        sections.push({ key: 'agents', label: 'Agents', items });
-      }
-    }
+    const agentItems = await scanFrontmatterSection(githubDir, 'agents', '.github/agents', {
+      predicate: (f) => f.name.endsWith('.md'),
+      resolveName: (meta, fileName) => (meta.name as string) || fileName.replace(/\.agent\.md$|\.md$/, ''),
+    });
+    if (agentItems.length) detected = true;
+    pushSection(sections, 'agents', 'Agents', agentItems);
 
-    const instructionsDir = await safeGetDirectory(githubDir, 'instructions');
-    if (instructionsDir) {
-      const suffix = '.instructions.md';
-      const items = await scanFrontmatterFiles(instructionsDir, '.github/instructions', {
-        predicate: (f) => f.name.endsWith(suffix),
-        resolveName: (_meta, fileName) => fileName.slice(0, -suffix.length),
-        resolveDescription: (meta) => (meta.applyTo ? `applyTo: ${meta.applyTo}` : ''),
-      });
-      if (items.length) {
-        detected = true;
-        sections.push({ key: 'pathInstructions', label: 'Path Instructions', items });
-      }
-    }
+    const pathInstructionSuffix = '.instructions.md';
+    const pathInstructionItems = await scanFrontmatterSection(githubDir, 'instructions', '.github/instructions', {
+      predicate: (f) => f.name.endsWith(pathInstructionSuffix),
+      resolveName: (_meta, fileName) => fileName.slice(0, -pathInstructionSuffix.length),
+      resolveDescription: (meta) => (meta.applyTo ? `applyTo: ${meta.applyTo}` : ''),
+    });
+    if (pathInstructionItems.length) detected = true;
+    pushSection(sections, 'pathInstructions', 'Path Instructions', pathInstructionItems);
 
-    const promptsDir = await safeGetDirectory(githubDir, 'prompts');
-    if (promptsDir) {
-      const suffix = '.prompt.md';
-      const items = await scanFrontmatterFiles(promptsDir, '.github/prompts', {
-        predicate: (f) => f.name.endsWith(suffix),
-        resolveName: (_meta, fileName) => fileName.slice(0, -suffix.length),
-      });
-      if (items.length) {
-        detected = true;
-        sections.push({ key: 'prompts', label: 'Prompts', items });
-      }
-    }
+    const promptSuffix = '.prompt.md';
+    const promptItems = await scanFrontmatterSection(githubDir, 'prompts', '.github/prompts', {
+      predicate: (f) => f.name.endsWith(promptSuffix),
+      resolveName: (_meta, fileName) => fileName.slice(0, -promptSuffix.length),
+    });
+    if (promptItems.length) detected = true;
+    pushSection(sections, 'prompts', 'Prompts', promptItems);
 
-    const chatmodesDir = await safeGetDirectory(githubDir, 'chatmodes');
-    if (chatmodesDir) {
-      const suffix = '.chatmode.md';
-      const items = await scanFrontmatterFiles(chatmodesDir, '.github/chatmodes', {
-        predicate: (f) => f.name.endsWith(suffix),
-        resolveName: (_meta, fileName) => fileName.slice(0, -suffix.length),
-      });
-      if (items.length) {
-        detected = true;
-        sections.push({ key: 'chatmodes', label: 'Chat Modes', items });
-      }
-    }
+    const chatmodeSuffix = '.chatmode.md';
+    const chatmodeItems = await scanFrontmatterSection(githubDir, 'chatmodes', '.github/chatmodes', {
+      predicate: (f) => f.name.endsWith(chatmodeSuffix),
+      resolveName: (_meta, fileName) => fileName.slice(0, -chatmodeSuffix.length),
+    });
+    if (chatmodeItems.length) detected = true;
+    pushSection(sections, 'chatmodes', 'Chat Modes', chatmodeItems);
 
     const workflowsDir = await safeGetDirectory(githubDir, 'workflows');
     const workflowItems = workflowsDir ? await scanWorkflows(workflowsDir) : [];
     workflowItems.push(...(await scanAgenticWorkflows(root, 'copilot')));
-    if (workflowItems.length) {
-      detected = true;
-      sections.push({ key: 'workflows', label: 'Workflows', items: workflowItems });
-    }
+    if (workflowItems.length) detected = true;
+    pushSection(sections, 'workflows', 'Workflows', workflowItems);
 
     const hookItems: ScanItem[] = [];
     await scanHooks(githubDir, hookItems);
-    if (hookItems.length) {
-      detected = true;
-      sections.push({ key: 'hooks', label: 'Hooks', items: hookItems });
-    }
+    if (hookItems.length) detected = true;
+    pushSection(sections, 'hooks', 'Hooks', hookItems);
 
     const settingItems: ScanItem[] = [];
     await scanCliSettings(githubDir, settingItems);
-    if (settingItems.length) {
-      detected = true;
-      sections.push({ key: 'settings', label: 'Settings', items: settingItems });
-    }
+    if (settingItems.length) detected = true;
+    pushSection(sections, 'settings', 'Settings', settingItems);
   }
 
-  if (skillItems.length) {
-    detected = true;
-    sections.unshift({ key: 'skills', label: 'Skills', items: skillItems });
-  }
-  if (mcpItems.length) {
-    detected = true;
-    sections.push({ key: 'mcpServers', label: 'MCP Servers', items: mcpItems });
-  }
-  if (instructionItems.length) {
-    detected = true;
-    sections.unshift({ key: 'instructions', label: 'Project Instructions', items: instructionItems });
-  }
+  if (skillItems.length) detected = true;
+  unshiftSection(sections, 'skills', 'Skills', skillItems);
+  if (mcpItems.length) detected = true;
+  pushSection(sections, 'mcpServers', 'MCP Servers', mcpItems);
+  if (instructionItems.length) detected = true;
+  unshiftSection(sections, 'instructions', 'Project Instructions', instructionItems);
 
   await resolveCanonicalRefsForSections(root, sections);
   return { editor: 'github-copilot', label: 'GitHub Copilot', detected, sections };
