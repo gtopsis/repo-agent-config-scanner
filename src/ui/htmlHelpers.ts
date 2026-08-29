@@ -46,9 +46,9 @@ export function emptyState(message: string): string {
 }
 
 /** The "editor · section"-style label pairing shown next to an item in several
- * places (details header breadcrumb, search results, graph nodes). HTML-escaped
- * for `innerHTML` use — do not use for plain-text contexts like `.title` tooltips,
- * where escaping would show literal `&amp;` instead of `&`. */
+ * places (details header breadcrumb, graph nodes). HTML-escaped for `innerHTML`
+ * use — do not use for plain-text contexts like `.title` tooltips, where escaping
+ * would show literal `&amp;` instead of `&`. */
 export function metaLine(a: string, b: string): string {
   return `${escapeHtml(a)} · ${escapeHtml(b)}`;
 }

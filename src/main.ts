@@ -2,7 +2,6 @@ import { scanAll, EDITOR_META } from './scan.js';
 import { isFileSystemAccessSupported } from './compat.js';
 import { renderResults } from './render.js';
 import { renderSkeletonList } from './ui/skeleton.js';
-import { createSearch } from './ui/search.js';
 import { createGraphView } from './ui/graphView.js';
 import { createDiffView } from './ui/diffView.js';
 import { saveDirectoryHandle, loadDirectoryHandle } from './lib/handleStore.js';
@@ -17,13 +16,10 @@ const compatBanner = document.getElementById('compat-banner') as HTMLElement;
 const editorSelect = document.getElementById('editor-select') as HTMLSelectElement;
 const editorSpinner = document.getElementById('editor-spinner') as HTMLElement;
 const editorStatus = document.getElementById('editor-status') as HTMLElement;
-const searchInput = document.getElementById('search-input') as HTMLInputElement;
-const searchDropdown = document.getElementById('search-dropdown') as HTMLElement;
 const viewTabs = document.getElementById('view-tabs') as HTMLElement;
 const viewTabButtons = [...viewTabs.querySelectorAll<HTMLButtonElement>('.view-tab')];
 const app = document.getElementById('app') as HTMLElement;
 
-const search = createSearch(searchInput, searchDropdown);
 const topbarRefs = { selectEl: editorSelect, statusEl: editorStatus, spinnerEl: editorSpinner };
 
 type ViewMode = 'browse' | 'graph' | 'diff';
@@ -82,11 +78,7 @@ function renderActiveView(): void {
 
 function display(results: ScanResult[]): void {
   latestResults = results;
-  if (results.length) {
-    viewTabs.hidden = false;
-    searchInput.hidden = false;
-  }
-  search.update(results, goToItem);
+  if (results.length) viewTabs.hidden = false;
   renderActiveView();
 }
 

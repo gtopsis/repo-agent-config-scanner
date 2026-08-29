@@ -11,9 +11,9 @@ export interface ItemTarget {
 }
 
 /** One `ItemTarget` per scanned item across every editor's results — the flat form
- * other consumers (search, the reference index, the graph/diff views) build on top
- * of, so the "walk every result → every section → every item" loop lives in exactly
- * one place. */
+ * other consumers (the reference index, the graph/diff views) build on top of, so
+ * the "walk every result → every section → every item" loop lives in exactly one
+ * place. */
 export function allTargets(results: ScanResult[]): ItemTarget[] {
   const targets: ItemTarget[] = [];
   for (const result of results) {
