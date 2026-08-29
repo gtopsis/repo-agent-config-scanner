@@ -2,6 +2,7 @@ import { scanAll, EDITOR_META } from './scan.js';
 import { isFileSystemAccessSupported } from './compat.js';
 import { renderResults } from './render.js';
 import { renderSkeletonList } from './ui/skeleton.js';
+import { createSearch } from './ui/search.js';
 import { saveDirectoryHandle, loadDirectoryHandle } from './lib/handleStore.js';
 import { saveScanCache, loadScanCache } from './lib/resultsCache.js';
 import type { ScanResult } from './types.js';
@@ -13,7 +14,11 @@ const compatBanner = document.getElementById('compat-banner') as HTMLElement;
 const editorSelect = document.getElementById('editor-select') as HTMLSelectElement;
 const editorSpinner = document.getElementById('editor-spinner') as HTMLElement;
 const editorStatus = document.getElementById('editor-status') as HTMLElement;
+const searchInput = document.getElementById('search-input') as HTMLInputElement;
+const searchDropdown = document.getElementById('search-dropdown') as HTMLElement;
 const app = document.getElementById('app') as HTMLElement;
+
+const search = createSearch(searchInput, searchDropdown);
 
 let currentHandle: FileSystemDirectoryHandle | null = null;
 let scanning = false;
@@ -28,7 +33,12 @@ function showFolderChrome(name: string): void {
 }
 
 function display(results: ScanResult[]): void {
-  renderResults(results, app, { selectEl: editorSelect, statusEl: editorStatus, spinnerEl: editorSpinner }, EDITOR_META);
+  renderResults(
+    results,
+    app,
+    { selectEl: editorSelect, statusEl: editorStatus, spinnerEl: editorSpinner, search, searchInputEl: searchInput },
+    EDITOR_META,
+  );
 }
 
 async function scanAndPersist(dirHandle: FileSystemDirectoryHandle): Promise<void> {

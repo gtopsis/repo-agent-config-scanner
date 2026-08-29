@@ -1,12 +1,15 @@
 import { createDetailsPanel } from './ui/detailsPanel.js';
 import { createItemList } from './ui/itemList.js';
 import { createNavigator } from './ui/navigator.js';
+import type { SearchBox } from './ui/search.js';
 import type { ScanResult } from './types.js';
 
 export interface TopbarRefs {
   selectEl: HTMLSelectElement;
   statusEl: HTMLElement;
   spinnerEl: HTMLElement;
+  search: SearchBox;
+  searchInputEl: HTMLInputElement;
 }
 
 /** Builds the sidebar/details layout skeleton, wires it to the item-list and
@@ -21,7 +24,7 @@ export function renderResults(
   topbar: TopbarRefs,
   allEditors: { editor: string; label: string }[] = results.map((r) => ({ editor: r.editor, label: r.label })),
 ): void {
-  const { selectEl, statusEl, spinnerEl } = topbar;
+  const { selectEl, statusEl, spinnerEl, search, searchInputEl } = topbar;
   const prevEditor = selectEl.selectedOptions[0]?.dataset.editor;
 
   container.innerHTML = '';
@@ -44,6 +47,8 @@ export function renderResults(
   const detailsPanel = createDetailsPanel(detailsEl, layout, navigator);
   const itemList = createItemList(itemListEl, layout, detailsPanel);
   navigator.setItemList(itemList);
+  search.update(results, navigator);
+  searchInputEl.hidden = false;
 
   const orderedResults = allEditors.map((e) => resultByEditor.get(e.editor)).filter((r): r is ScanResult => !!r);
 
