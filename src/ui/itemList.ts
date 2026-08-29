@@ -1,5 +1,5 @@
 import { categoryMeta, orderedSections } from '../config/categories.js';
-import { escapeHtml } from './htmlHelpers.js';
+import { emptyState } from './htmlHelpers.js';
 import { buildItemRow, buildGroupHeading, matchesFocus } from './itemRow.js';
 import type { FocusTarget } from './itemRow.js';
 import type { CategoryMeta } from '../config/categories.js';
@@ -35,7 +35,7 @@ export function createItemList(itemList: HTMLElement, layout: HTMLElement, detai
     layout.classList.remove('showing-details');
 
     if (!result.detected || result.sections.length === 0) {
-      itemList.innerHTML = `<div class="empty-state">No ${escapeHtml(result.label)} configuration found.</div>`;
+      itemList.innerHTML = emptyState(`No ${result.label} configuration found.`);
       detailsPanel.renderEmpty('Nothing to show for this editor.');
       return;
     }

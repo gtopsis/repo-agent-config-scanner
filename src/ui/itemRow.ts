@@ -1,4 +1,4 @@
-import { escapeHtml, iconEl } from './htmlHelpers.js';
+import { escapeHtml, icon, iconEl } from './htmlHelpers.js';
 import type { CategoryMeta } from '../config/categories.js';
 import type { ScanItem, ScanSection } from '../types.js';
 
@@ -31,8 +31,8 @@ export function buildGroupHeading(section: ScanSection, meta: CategoryMeta): HTM
   const heading = document.createElement('summary');
   heading.className = 'item-group-heading';
   heading.innerHTML =
-    `<i class="ti ti-chevron-right chevron" aria-hidden="true"></i>` +
-    `<i class="ti ${meta.icon}" style="color:var(--cat-${meta.color})" aria-hidden="true"></i>` +
+    icon('ti-chevron-right', 'chevron') +
+    icon(meta.icon, undefined, `color:var(--cat-${meta.color})`) +
     `<span>${escapeHtml(section.label)}</span>` +
     `<span class="item-group-count">${section.items.length}</span>`;
   return heading;

@@ -1,6 +1,6 @@
 import { renderMarkdown } from '../../lib/markdown.js';
 import { SECTION_BODY_TYPE } from '../../config/fieldSchemas.js';
-import { escapeHtml } from '../htmlHelpers.js';
+import { escapeHtml, icon } from '../htmlHelpers.js';
 import type { RefNav } from './refNav.js';
 import type { ScanItem, ScanSection } from '../../types.js';
 
@@ -22,7 +22,7 @@ function linkifyReferences(bodyEl: HTMLElement, item: ScanItem, nav: RefNav): vo
     link.type = 'button';
     link.className = 'ref-link';
     link.title = `Jump to ${target.item.name} (${target.sectionLabel})`;
-    link.innerHTML = `<code>${escapeHtml(text)}</code><i class="ti ti-arrow-right" aria-hidden="true"></i>`;
+    link.innerHTML = `<code>${escapeHtml(text)}</code>${icon('ti-arrow-right')}`;
     link.addEventListener('click', () => nav.goTo(target));
     codeEl.replaceWith(link);
   });

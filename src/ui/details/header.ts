@@ -1,4 +1,4 @@
-import { escapeHtml, iconEl } from '../htmlHelpers.js';
+import { escapeHtml, icon, iconEl, metaLine } from '../htmlHelpers.js';
 import { formatItemMarkdown } from '../../lib/exportMarkdown.js';
 import type { CategoryMeta } from '../../config/categories.js';
 import type { ScanItem, ScanResult, ScanSection } from '../../types.js';
@@ -17,18 +17,18 @@ function buildCopyButton(result: ScanResult, section: ScanSection, item: ScanIte
   button.type = 'button';
   button.className = 'copy-btn';
   button.title = 'Copy as Markdown';
-  button.innerHTML = `<i class="ti ${COPY_ICON}" aria-hidden="true"></i>`;
+  button.innerHTML = icon(COPY_ICON);
 
   let resetTimer: ReturnType<typeof setTimeout> | undefined;
   button.addEventListener('click', async () => {
     try {
       await window.navigator.clipboard.writeText(formatItemMarkdown(result, section, item));
       button.classList.add('copied');
-      button.innerHTML = `<i class="ti ${COPIED_ICON}" aria-hidden="true"></i>`;
+      button.innerHTML = icon(COPIED_ICON);
       clearTimeout(resetTimer);
       resetTimer = setTimeout(() => {
         button.classList.remove('copied');
-        button.innerHTML = `<i class="ti ${COPY_ICON}" aria-hidden="true"></i>`;
+        button.innerHTML = icon(COPY_ICON);
       }, COPIED_RESET_MS);
     } catch (e) {
       console.error('Copy to clipboard failed', e);
@@ -46,7 +46,7 @@ export function renderHeader(result: ScanResult, section: ScanSection, item: Sca
   header.innerHTML =
     iconEl(meta, 'lg') +
     `<div class="details-heading">` +
-    `<div class="details-breadcrumb">${escapeHtml(result.label)} · ${escapeHtml(section.label)}</div>` +
+    `<div class="details-breadcrumb">${metaLine(result.label, section.label)}</div>` +
     `<h2 class="details-name">${escapeHtml(item.name)}</h2>` +
     `<div class="details-path">${escapeHtml(item.path)}</div>` +
     (item.additionalPaths?.length

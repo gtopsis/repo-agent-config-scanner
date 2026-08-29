@@ -1,5 +1,5 @@
 import { searchItems } from '../lib/search.js';
-import { escapeHtml } from './htmlHelpers.js';
+import { escapeHtml, metaLine } from './htmlHelpers.js';
 import type { ItemTarget } from '../lib/itemIndex.js';
 import type { ScanResult } from '../types.js';
 
@@ -54,7 +54,7 @@ export function createSearch(inputEl: HTMLInputElement, dropdownEl: HTMLElement)
       row.type = 'button';
       row.className = 'search-row';
       row.innerHTML =
-        `<span class="search-row-meta">${escapeHtml(target.editorLabel)} · ${escapeHtml(target.sectionLabel)}</span>` +
+        `<span class="search-row-meta">${metaLine(target.editorLabel, target.sectionLabel)}</span>` +
         `<span class="search-row-name">${escapeHtml(target.item.name)}</span>` +
         (target.item.description ? `<span class="search-row-desc">${escapeHtml(target.item.description)}</span>` : '');
       // mousedown (not click) so this fires before the input's blur-triggered close.

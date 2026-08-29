@@ -1,5 +1,5 @@
 import { renderMarkdown } from '../../lib/markdown.js';
-import { escapeHtml } from '../htmlHelpers.js';
+import { escapeHtml, icon } from '../htmlHelpers.js';
 import type { RefNav } from './refNav.js';
 import type { ScanItem } from '../../types.js';
 
@@ -16,10 +16,10 @@ export function renderCanonicalRefs(item: ScanItem, nav: RefNav): HTMLElement[] 
     const labelText = `Canonical source: ${escapeHtml(ref.path)}`;
     const labelHtml = target
       ? `<button type="button" class="canonical-ref-label canonical-ref-label-linked">` +
-        `<i class="ti ti-git-merge" aria-hidden="true"></i> ${labelText}` +
-        `<i class="ti ti-arrow-right canonical-ref-jump" aria-hidden="true"></i>` +
+        `${icon('ti-git-merge')} ${labelText}` +
+        `${icon('ti-arrow-right', 'canonical-ref-jump')}` +
         `</button>`
-      : `<div class="canonical-ref-label"><i class="ti ti-git-merge" aria-hidden="true"></i> ${labelText}</div>`;
+      : `<div class="canonical-ref-label">${icon('ti-git-merge')} ${labelText}</div>`;
 
     refEl.innerHTML =
       labelHtml +

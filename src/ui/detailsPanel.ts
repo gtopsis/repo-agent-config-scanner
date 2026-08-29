@@ -1,4 +1,4 @@
-import { escapeHtml } from './htmlHelpers.js';
+import { icon, emptyState } from './htmlHelpers.js';
 import { renderHeader } from './details/header.js';
 import { renderFields } from './details/fields.js';
 import { renderHookCommand } from './details/hookCommand.js';
@@ -29,7 +29,7 @@ export function createDetailsPanel(details: HTMLElement, layout: HTMLElement, na
     const backBtn = document.createElement('button');
     backBtn.type = 'button';
     backBtn.className = 'details-back';
-    backBtn.innerHTML = `<i class="ti ti-arrow-left" aria-hidden="true"></i> Back to list`;
+    backBtn.innerHTML = `${icon('ti-arrow-left')} Back to list`;
     backBtn.addEventListener('click', () => layout.classList.remove('showing-details'));
     details.appendChild(backBtn);
 
@@ -51,7 +51,7 @@ export function createDetailsPanel(details: HTMLElement, layout: HTMLElement, na
   }
 
   function renderEmpty(message: string): void {
-    details.innerHTML = `<div class="empty-state">${escapeHtml(message)}</div>`;
+    details.innerHTML = emptyState(message);
   }
 
   return { render, renderEmpty };

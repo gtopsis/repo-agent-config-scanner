@@ -26,6 +26,29 @@ export function formatValue(value: unknown, format?: FieldFormat): string | stri
   return String(value);
 }
 
+/** The one place that builds a Tabler icon's `<i>` markup — `extraClass` for an
+ * additional CSS class (e.g. a chevron's rotation class), `style` for one-off
+ * inline styling (e.g. a category color) that doesn't warrant its own class. */
+export function icon(name: string, extraClass?: string, style?: string): string {
+  const cls = extraClass ? `ti ${name} ${extraClass}` : `ti ${name}`;
+  const styleAttr = style ? ` style="${escapeHtml(style)}"` : '';
+  return `<i class="${cls}"${styleAttr} aria-hidden="true"></i>`;
+}
+
 export function iconEl(meta: CategoryMeta, size: 'sm' | 'lg'): string {
-  return `<span class="icon-badge ${size}"><i class="ti ${meta.icon}" aria-hidden="true"></i></span>`;
+  return `<span class="icon-badge ${size}">${icon(meta.icon)}</span>`;
+}
+
+/** The standard "nothing to show" placeholder, used anywhere a list/view has no
+ * content yet. HTML-escapes `message` — not for contexts needing inline markup. */
+export function emptyState(message: string): string {
+  return `<div class="empty-state">${escapeHtml(message)}</div>`;
+}
+
+/** The "editor · section"-style label pairing shown next to an item in several
+ * places (details header breadcrumb, search results, graph nodes). HTML-escaped
+ * for `innerHTML` use — do not use for plain-text contexts like `.title` tooltips,
+ * where escaping would show literal `&amp;` instead of `&`. */
+export function metaLine(a: string, b: string): string {
+  return `${escapeHtml(a)} · ${escapeHtml(b)}`;
 }
