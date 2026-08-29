@@ -8,6 +8,7 @@ import type { ScanResult } from './types.js';
 
 const folderBtn = document.getElementById('folder-btn') as HTMLButtonElement;
 const reconnectBtn = document.getElementById('reconnect-btn') as HTMLButtonElement;
+const refreshBtn = document.getElementById('refresh-btn') as HTMLButtonElement;
 const compatBanner = document.getElementById('compat-banner') as HTMLElement;
 const editorSelect = document.getElementById('editor-select') as HTMLSelectElement;
 const editorSpinner = document.getElementById('editor-spinner') as HTMLElement;
@@ -15,6 +16,7 @@ const editorStatus = document.getElementById('editor-status') as HTMLElement;
 const app = document.getElementById('app') as HTMLElement;
 
 let currentHandle: FileSystemDirectoryHandle | null = null;
+let scanning = false;
 
 // Same button, same toolbar slot in both states: before a folder is picked it reads
 // "Select project" and starts the picker; afterward it shows the active folder's name
@@ -30,17 +32,28 @@ function display(results: ScanResult[]): void {
 }
 
 async function scanAndPersist(dirHandle: FileSystemDirectoryHandle): Promise<void> {
+  if (scanning) return;
+  scanning = true;
   currentHandle = dirHandle;
   renderSkeletonList(app);
+  refreshBtn.hidden = false;
+  refreshBtn.disabled = true;
+  refreshBtn.classList.add('spinning');
 
-  const results: ScanResult[] = [];
-  const allResults = await scanAll(dirHandle, (result) => {
-    results.push(result);
-    display(results);
-  });
+  try {
+    const results: ScanResult[] = [];
+    const allResults = await scanAll(dirHandle, (result) => {
+      results.push(result);
+      display(results);
+    });
 
-  saveScanCache(dirHandle.name, allResults);
-  await saveDirectoryHandle(dirHandle);
+    saveScanCache(dirHandle.name, allResults);
+    await saveDirectoryHandle(dirHandle);
+  } finally {
+    scanning = false;
+    refreshBtn.disabled = false;
+    refreshBtn.classList.remove('spinning');
+  }
 }
 
 async function pickAndScan(): Promise<void> {
@@ -70,6 +83,11 @@ async function reconnect(): Promise<void> {
   }
 }
 
+async function refresh(): Promise<void> {
+  if (!currentHandle) return;
+  await scanAndPersist(currentHandle);
+}
+
 // On load: show any cached results immediately (so a refresh never loses what was on
 // screen), then check whether we can silently regain read access to the same folder.
 // A same-session reload usually can (the browser remembers the grant); a fresh
@@ -97,6 +115,7 @@ async function restoreSession(): Promise<void> {
 
 folderBtn.addEventListener('click', pickAndScan);
 reconnectBtn.addEventListener('click', reconnect);
+refreshBtn.addEventListener('click', refresh);
 
 if (!isFileSystemAccessSupported()) {
   compatBanner.hidden = false;
