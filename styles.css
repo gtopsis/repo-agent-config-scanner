@@ -40,6 +40,17 @@
   box-sizing: border-box;
 }
 
+/* Several elements below (`.banner`, `.view-tabs`, `.icon-btn`, ...) set their own
+ * `display` (flex/inline-flex) to lay out their contents. An author stylesheet's
+ * plain `display` declaration always wins over the browser's default
+ * `[hidden] { display: none }` UA-stylesheet rule, specificity aside — so without
+ * this, any hidden element that also matches one of those classes would stay
+ * visible. This restores `hidden` as the final word regardless of what else
+ * targets the element. */
+[hidden] {
+  display: none !important;
+}
+
 html, body {
   margin: 0;
   height: 100%;

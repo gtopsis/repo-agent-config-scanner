@@ -36,7 +36,11 @@ const server = http.createServer((req, res) => {
       return;
     }
     const ext = path.extname(filePath);
-    res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
+    // This is a local dev-loop server, not a CDN-fronted production deployment —
+    // always serving the latest file from disk matters far more here than
+    // caching perf, and stale-cache confusion (edit a file, reload, still see the
+    // old behavior) is a much worse default than a few extra re-reads.
+    res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Cache-Control': 'no-store' });
     res.end(data);
   });
 });
