@@ -1,7 +1,7 @@
 import { scanAll, EDITOR_META } from './scan.js';
 import { isFileSystemAccessSupported } from './compat.js';
 import { renderResults } from './render.js';
-import { renderSkeletonList } from './ui/skeleton.js';
+import { renderSkeleton } from './ui/skeleton.js';
 import { createGraphView } from './ui/graphView.js';
 import { createDiffView } from './ui/diffView.js';
 import { saveDirectoryHandle, loadDirectoryHandle } from './lib/handleStore.js';
@@ -86,7 +86,7 @@ async function scanAndPersist(dirHandle: FileSystemDirectoryHandle): Promise<voi
   if (scanning) return;
   scanning = true;
   currentHandle = dirHandle;
-  renderSkeletonList(app);
+  renderSkeleton(app);
   refreshBtn.hidden = false;
   refreshBtn.disabled = true;
   refreshBtn.classList.add('spinning');
@@ -114,10 +114,18 @@ async function pickAndScan(): Promise<void> {
     showFolderChrome(dirHandle.name);
     await scanAndPersist(dirHandle);
   } catch (e) {
-    if (e instanceof Error && e.name !== 'AbortError') {
-      console.error(e);
-      alert('Could not read that folder: ' + e.message);
+    if (e instanceof Error && e.name === 'AbortError') {
+      // The picker was dismissed without choosing a folder — not an error, but
+      // still logged at debug level so a *different*-than-expected AbortError
+      // (e.g. a browser blocking the picker outright rather than the user
+      // cancelling it) is at least visible in devtools instead of looking like
+      // the button silently did nothing.
+      console.debug('Folder picker closed without a selection:', e.message);
+      return;
     }
+    console.error('showDirectoryPicker failed:', e);
+    const detail = e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+    alert(`Could not open the folder picker (${detail}). Check the browser console for details.`);
   }
 }
 

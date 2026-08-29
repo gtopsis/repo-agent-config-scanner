@@ -229,11 +229,6 @@ main {
   padding: 0;
 }
 
-.skeleton-list {
-  max-width: 340px;
-  padding: 8px 0;
-}
-
 .skeleton-item {
   display: flex;
   align-items: center;
@@ -272,6 +267,73 @@ main {
 
 .skeleton-line-desc {
   width: 45%;
+}
+
+/* Details-panel skeleton — mirrors .details-header/.details-fields/.details-body's
+ * own layout rules so the placeholder is shaped like the real thing. */
+.skeleton-details-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.skeleton-icon-lg {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+
+.skeleton-line-breadcrumb {
+  width: 30%;
+}
+
+.skeleton-line-title {
+  width: 55%;
+  height: 14px;
+}
+
+.skeleton-line-path {
+  width: 40%;
+}
+
+.skeleton-details-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+}
+
+.skeleton-field-row {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 12px;
+  align-items: center;
+}
+
+.skeleton-field-label {
+  width: 80px;
+}
+
+.skeleton-field-value {
+  width: 60%;
+}
+
+.skeleton-details-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-top: 1px solid var(--border);
+  padding-top: 16px;
+}
+
+.skeleton-body-line {
+  height: 11px;
 }
 
 @keyframes skeleton-shimmer {
