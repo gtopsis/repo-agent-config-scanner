@@ -5,6 +5,8 @@ per-editor agentic coding configuration — skills, commands, agents, hooks,
 rules, MCP servers, and more — side by side across Claude Code, GitHub
 Copilot, OpenCode, and Cursor.
 
+<img width="1410" height="911" alt="Screenshot 2026-08-29 214536" src="https://github.com/user-attachments/assets/d907fcc9-e78e-4e29-a880-d65034f30714" />
+
 ## Why
 
 Modern AI coding tools each invent their own config conventions
