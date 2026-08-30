@@ -1,7 +1,7 @@
 # Agentic Config Visualizer
 
 A local, no-backend tool that scans a project folder and visualizes its
-per-editor agentic coding configuration — skills, commands, agents, hooks,
+**per-editor** agentic coding configuration — skills, commands, agents, hooks,
 rules, MCP servers, and more — side by side across Claude Code, GitHub
 Copilot, OpenCode, and Cursor.
 
